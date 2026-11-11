@@ -76,17 +76,15 @@ async function startServer() {
     }
   };
 
+  const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
   const getAiClient = () => {
-    if (!process.env.GEMINI_API_KEY) {
+    const rawKey = (process.env.GEMINI_API_KEY || '').trim();
+    if (!rawKey) {
       return null;
     }
     return new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
+      apiKey: rawKey,
     });
   };
 
@@ -150,7 +148,7 @@ Trả lời thành 3 ý gạch đầu dòng rõ ràng:
 3. Hành động khuyến nghị cho Ban QLDA / Chủ đầu tư`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: DEFAULT_GEMINI_MODEL,
         contents: prompt,
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -202,7 +200,7 @@ Yêu cầu định dạng câu trả lời rõ ràng, chuyên nghiệp theo đú
 - **Nguồn:** Liệt kê cụ thể Khoản, Điều, Số hiệu văn bản (VD: Khoản 1 Điều 6 NĐ 356/2025/NĐ-CP; Khoản 1 Điều 14 Luật Xây dựng 135/2025/QH15; Điều 43 NĐ 330/2026/NĐ-CP).`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: DEFAULT_GEMINI_MODEL,
         contents: prompt,
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -246,7 +244,7 @@ ${contractText}
 """`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: DEFAULT_GEMINI_MODEL,
         contents: prompt,
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -348,7 +346,7 @@ Thông tin bước thực hiện đang thẩm định:
 Hãy trả về nhận định tổng hợp ngắn gọn (tối đa 130 từ) gồm 3 dòng rõ ràng cho 3 Micro-Agent (GatekeeperAgent, LegalCrossCheckAgent, AuditDeductionAgent) và kết luận hành động bắt buộc cho Ban QLDA.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: DEFAULT_GEMINI_MODEL,
         contents: prompt,
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -486,7 +484,7 @@ Nhiệm vụ của bạn là đọc tệp hồ sơ đính kèm (PDF bản quét 
       });
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: DEFAULT_GEMINI_MODEL,
         contents: { parts },
         config: {
           systemInstruction: systemPrompt,
@@ -592,7 +590,7 @@ Hãy biên tập bổ sung đầy đủ hệ thống các Chương và Điều k
       }".`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: DEFAULT_GEMINI_MODEL,
         contents: prompt,
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -725,7 +723,7 @@ Hãy lập MA TRẬN ĐỐI SOÁT CHÉO LIÊN LUẬT (liên kết trực tiếp 
 Đồng thời phân tích rõ CẢNH BÁO RỦI RO XUẤT TOÁN khi Kiểm toán Nhà nước, Thanh tra hoặc Kho bạc Nhà nước hậu kiểm hồ sơ.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: DEFAULT_GEMINI_MODEL,
         contents: prompt,
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -927,7 +925,7 @@ NGUYÊN TẮC BẤT BIẾN:
 2. Trả về đúng cấu trúc JSON phục vụ 6 bước IRAC+ (Issue, Interpretation, Application, Counterargument, Conclusion).`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: DEFAULT_GEMINI_MODEL,
         contents: prompt,
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
