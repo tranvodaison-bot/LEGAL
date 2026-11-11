@@ -1,0 +1,40 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-serif: 'Lora', Georgia, serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+  }
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-sans-ui {
+  font-family: var(--font-sans);
+}
+
+.font-serif-prose {
+  font-family: var(--font-serif);
+}
+
+.font-mono-code {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.balance-text {
+  text-wrap: balance;
+}

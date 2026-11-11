@@ -1,0 +1,21 @@
+my-app/
+├── .antigravity/                   # Cấu hình quy tắc cục bộ cho Agent / IDE
+│   └── rules.md                    # Bản chỉ dẫn hành vi cốt lõi (Core Invariants)
+├── .docs/                          # Bộ nhớ dài hạn tĩnh (Ngăn tràn ngữ cảnh token)
+│   ├── ARCHITECTURE.md             # Kiến trúc tổng thể, Schema CSDL & API Contracts
+│   ├── STATE.md                    # Tiến độ dự án, tính năng đã xong / đang làm
+│   └── LESSONS_LEARNED.md          # Các lỗi đã từng gặp và giải pháp đã khắc phục
+├── src/                            # Mã nguồn phân tầng theo Clean Architecture
+│   ├── core/                       # Domain Entities & Business Logic (Không phụ thuộc UI/DB)
+│   ├── modules/                    # Phân chia theo nghiệp vụ cụ thể
+│   │   └── [module-name]/
+│   │       ├── [module].model.ts   # Định nghĩa kiểu dữ liệu & schema
+│   │       ├── [module].service.ts # Xử lý logic nghiệp vụ
+│   │       └── [module].test.ts    # Bắt buộc: Test suite tự động xác thực
+│   ├── ui/                         # Tầng giao diện người dùng
+│   │   ├── components/             # Reusable UI Components đạt chuẩn Production
+│   │   └── views/                  # Các màn hình chính
+│   └── infrastructure/             # DB connection, API client, Local Storage, Native APIs
+├── tests/                          # E2E & Integration tests tổng thể
+├── package.json (hoặc Cargo.toml / pyproject.toml)
+└── README.md

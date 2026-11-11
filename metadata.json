@@ -1,0 +1,6 @@
+{
+  "name": "LexViet — Thư Viện Pháp Luật & Bản Đồ Đối Soát Chéo",
+  "description": "Hệ thống tra cứu văn bản quy phạm pháp luật Việt Nam tích hợp bản đồ pháp luật tương tác, đối soát chéo hai màn hình, tủ sách cá nhân ngoại tuyến PWA và bản tin cập nhật luật hàng ngày.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
