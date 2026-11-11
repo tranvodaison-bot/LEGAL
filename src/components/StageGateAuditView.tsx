@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Copy, Check, X, Database, Download } from 'lucide-react';
+import { Copy, Check, X, Database, Download, Calendar, ShieldCheck, FileCheck2 } from 'lucide-react';
 import {
   AttachedStepFile,
   AuditPhaseCode,
@@ -25,6 +25,8 @@ import { StageGateNavigator } from './StageGateNavigator';
 import { ComplianceTable } from './ComplianceTable';
 import { DualDrawerInspector } from './DualDrawerInspector';
 import { GlobalAuditDashboard } from './GlobalAuditDashboard';
+import { EvidenceBasedReportModal } from './EvidenceBasedReportModal';
+import { resolveDocumentAtDate } from '../utils/pointInTimeResolver';
 import { McpSessionAuditRecord } from '../types/legal';
 
 interface StageGateAuditViewProps {
@@ -153,6 +155,9 @@ export const StageGateAuditView: React.FC<StageGateAuditViewProps> = ({
   const [auditingStepCode, setAuditingStepCode] = useState<string | null>(null);
   const [showSqlModal, setShowSqlModal] = useState<boolean>(false);
   const [copiedSql, setCopiedSql] = useState<boolean>(false);
+  const [stepEventDate, setStepEventDate] = useState<string>('2026-06-15');
+  const [projectInitiationDate, setProjectInitiationDate] = useState<string>('2025-11-15');
+  const [showEvidenceReportModal, setShowEvidenceReportModal] = useState<boolean>(false);
 
   // Append an immutable entry to compliance_audit_trails
   const appendAuditTrail = (
@@ -400,6 +405,32 @@ export const StageGateAuditView: React.FC<StageGateAuditViewProps> = ({
           };
         }
 
+        // BL-4.1 & TC-P1-06: Bắt buộc có hồ sơ chứng cứ đã xác thực SHA-256 (64 hex) trước khi cho phép mở khóa PASSED trên cổng bắt buộc
+        const hasVerifiedSha256Evidence = existing.attached_files.some((f) => {
+          const fileHash = f.sha256_hash || f.hash;
+          return typeof fileHash === 'string' && /^[a-f0-9]{64}$/i.test(fileHash);
+        });
+        if (nextStatus === 'PASSED' && stepObj.is_mandatory && !hasVerifiedSha256Evidence) {
+          appendAuditTrail(
+            stepCode,
+            'GATEKEEPER_LOCKED_MISSING_SHA256_EVIDENCE',
+            'GatekeeperAgent',
+            { status: existing.status },
+            { status: 'BLOCKED' }
+          );
+          return {
+            ...prev,
+            [stepCode]: {
+              ...existing,
+              status: 'BLOCKED',
+              notes:
+                'LOCKED (BL-4.1): Cổng kiểm soát bắt buộc chưa có tệp hồ sơ chứng cứ đính kèm có mã băm SHA-256 xác thực.',
+              ai_audit_verdict: verdict,
+              updated_at: new Date().toLocaleString('vi-VN'),
+            },
+          };
+        }
+
         const clearedFlags =
           nextStatus === 'PASSED' ? [] : existing.active_risk_flags;
 
@@ -454,11 +485,11 @@ export const StageGateAuditView: React.FC<StageGateAuditViewProps> = ({
         }),
       });
 
-      const data = await response.json();
-      const summaryText =
-        response.ok && data.executiveSummary
-          ? String(data.executiveSummary)
-          : `1. GatekeeperAgent: ${deterministicVerdict.gatekeeper.message}\n2. LegalCrossCheckAgent: ${deterministicVerdict.legalCrossCheck.message}\n3. AuditDeductionAgent: ${deterministicVerdict.auditDeduction.message}`;
+      const data = await response.json().catch(() => ({}));
+      const isAiSuccess = Boolean(response.ok && data?.executiveSummary);
+      const summaryText = isAiSuccess
+        ? String(data.executiveSummary)
+        : `[Đối soát Tất định Nội bộ — Offline/Không dùng AI]\n1. GatekeeperAgent: ${deterministicVerdict.gatekeeper.message}\n2. LegalCrossCheckAgent: ${deterministicVerdict.legalCrossCheck.message}\n3. AuditDeductionAgent: ${deterministicVerdict.auditDeduction.message}`;
 
       const fullVerdict = {
         ...deterministicVerdict,
@@ -470,15 +501,17 @@ export const StageGateAuditView: React.FC<StageGateAuditViewProps> = ({
         [step.step_code]: {
           ...currentRec,
           ai_audit_verdict: fullVerdict,
-          audited_by: 'Gemini 3.8 Multi-Agent MCP',
+          audited_by: isAiSuccess
+            ? 'Gemini 3.8 Multi-Agent MCP'
+            : '[Đối soát Tất định Nội bộ — Offline/Không dùng AI]',
           updated_at: new Date().toLocaleString('vi-VN'),
         },
       }));
 
       appendAuditTrail(
         step.step_code,
-        'AI_MULTI_AGENT_MCP_AUDIT',
-        'Gemini 3.8 Multi-Agent',
+        isAiSuccess ? 'AI_MULTI_AGENT_MCP_AUDIT' : 'DETERMINISTIC_OFFLINE_AUDIT',
+        isAiSuccess ? 'Gemini 3.8 Multi-Agent' : 'DeterministicAuditEngine',
         { status: currentRec.status },
         { status: currentRec.status }
       );
@@ -487,7 +520,7 @@ export const StageGateAuditView: React.FC<StageGateAuditViewProps> = ({
         onSyncAuditToGlobalSummary(step, summaryText);
       }
     } catch {
-      const fallbackSummary = `1. GatekeeperAgent: ${deterministicVerdict.gatekeeper.message}\n2. LegalCrossCheckAgent: ${deterministicVerdict.legalCrossCheck.message}\n3. AuditDeductionAgent: ${deterministicVerdict.auditDeduction.message}`;
+      const fallbackSummary = `[Đối soát Tất định Nội bộ — Offline/Không dùng AI]\n1. GatekeeperAgent: ${deterministicVerdict.gatekeeper.message}\n2. LegalCrossCheckAgent: ${deterministicVerdict.legalCrossCheck.message}\n3. AuditDeductionAgent: ${deterministicVerdict.auditDeduction.message}`;
       setRecords((prev) => ({
         ...prev,
         [step.step_code]: {
@@ -496,6 +529,7 @@ export const StageGateAuditView: React.FC<StageGateAuditViewProps> = ({
             ...deterministicVerdict,
             geminiExecutiveSummary: fallbackSummary,
           },
+          audited_by: '[Đối soát Tất định Nội bộ — Offline/Không dùng AI]',
           updated_at: new Date().toLocaleString('vi-VN'),
         },
       }));
@@ -504,9 +538,74 @@ export const StageGateAuditView: React.FC<StageGateAuditViewProps> = ({
     }
   };
 
+  const activeStepPitCheck = useMemo(() => {
+    const primaryRef = activeStep.legal_references[0];
+    if (!primaryRef || documents.length === 0) return null;
+    try {
+      return resolveDocumentAtDate(
+        primaryRef.docId || primaryRef.docNumber,
+        stepEventDate,
+        documents,
+        projectInitiationDate
+      );
+    } catch {
+      return null;
+    }
+  }, [activeStep, stepEventDate, projectInitiationDate, documents]);
+
   return (
     <div className="flex-1 overflow-y-auto bg-[#FBF9F5] dark:bg-[#141413] text-[#1C1917] dark:text-[#F5F2EB] p-4 sm:p-6">
       <div className="max-w-[1440px] mx-auto space-y-5">
+        {/* BL-4.1: CaseFactTimeline & Point-in-Time Legal Resolver Bar for Stage-Gate */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#1C1B18] border-2 border-[#C6A342]/70 shadow-xs flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded bg-[#152D42] text-[#E9C96D] text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Case Fact Timeline · Kiểm Soát Hiệu Lực Point-in-Time & SHA-256 Gate</span>
+              </span>
+              {activeStepPitCheck && (
+                <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-400 text-emerald-900 dark:text-emerald-200 font-mono-code text-[11px] font-bold">
+                  Luật áp dụng tại {stepEventDate}: {activeStepPitCheck.applicable_law_doc_number} ({activeStepPitCheck.status_at_date})
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-stone-600 dark:text-stone-400">
+              {activeStepPitCheck
+                ? activeStepPitCheck.explanation
+                : 'Chọn mốc ngày thực hiện thủ tục (event_date) để tự động đối chiếu quy phạm có hiệu lực và điều khoản chuyển tiếp.'}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 text-xs">
+            <label className="flex items-center gap-1.5 font-semibold text-stone-700 dark:text-stone-300">
+              <span>Mốc phê duyệt dự án:</span>
+              <input
+                type="date"
+                value={projectInitiationDate}
+                onChange={(e) => setProjectInitiationDate(e.target.value)}
+                className="px-2 py-1 rounded-lg border border-stone-300 dark:border-stone-700 bg-[#FBF9F5] dark:bg-stone-900 font-mono-code text-xs"
+              />
+            </label>
+            <label className="flex items-center gap-1.5 font-semibold text-stone-700 dark:text-stone-300">
+              <span>Ngày thực hiện bước ({activeStep.step_code}):</span>
+              <input
+                type="date"
+                value={stepEventDate}
+                onChange={(e) => setStepEventDate(e.target.value)}
+                className="px-2 py-1 rounded-lg border border-stone-300 dark:border-stone-700 bg-[#FBF9F5] dark:bg-stone-900 font-mono-code text-xs"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowEvidenceReportModal(true)}
+              className="px-3 py-1.5 rounded-xl bg-[#152D42] hover:bg-[#1E3F5A] text-[#E9C96D] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <FileCheck2 className="w-3.5 h-3.5" />
+              <span>Xuất Báo Cáo Có Dẫn Chứng (A4/JSON)</span>
+            </button>
+          </div>
+        </div>
         {/* 0. GlobalAuditDashboard (Recharts Top 5 Legal Risks Bar Chart & Lifecycle Compliance Progression Line Chart) */}
         <GlobalAuditDashboard
           records={records}
@@ -646,6 +745,13 @@ export const StageGateAuditView: React.FC<StageGateAuditViewProps> = ({
           </div>
         </div>
       )}
+      <EvidenceBasedReportModal
+        isOpen={showEvidenceReportModal}
+        onClose={() => setShowEvidenceReportModal(false)}
+        asOfDate={stepEventDate}
+        documents={documents}
+        auditRecords={mcpAuditRecords}
+      />
     </div>
   );
 };

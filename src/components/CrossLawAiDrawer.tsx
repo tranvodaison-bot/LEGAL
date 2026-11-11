@@ -18,6 +18,7 @@ import {
   LegalCrossReference,
   LegalDocument,
 } from '../types/legal';
+import { verifyCitationAgainstCorpus } from '../utils/citationVerifier';
 
 interface CrossLawAiDrawerProps {
   isOpen: boolean;
@@ -41,90 +42,119 @@ interface CrossLawAiDrawerProps {
  * so the user sees immediate multi-law linkages (Luật Xây dựng, Luật Đất đai, Luật Đấu thầu, Nghị định)
  * while Gemini Prompt Engine enriches or when working offline.
  */
-function buildBaselineCrossLawMatrix(
+/**
+ * Build a deterministic, SSoT-grounded baseline Cross-Law Matrix strictly from verified
+ * `directCrossRefs` and `amendment_info` in SSoT (Honest Abstention Protocol — BL-1.5 & TC-P0-05).
+ * Never attaches hardcoded Construction/Bidding/Land/Treasury laws to unrelated documents.
+ */
+export function buildBaselineCrossLawMatrix(
   doc: LegalDocument,
   article: LegalArticle,
-  allDocuments: LegalDocument[]
+  allDocuments: LegalDocument[],
+  directCrossRefs: LegalCrossReference[] = []
 ): CrossLawAuditResponse {
-  const findDocByNumberPart = (part: string) =>
-    allDocuments.find((d) =>
-      d.doc_number.toLowerCase().includes(part.toLowerCase())
-    );
-
-  const lxdDoc = findDocByNumberPart('135/2025') || findDocByNumberPart('62/2020');
-  const lddDoc = findDocByNumberPart('31/2024');
-  const ldtDoc = findDocByNumberPart('22/2023') || findDocByNumberPart('57/2024');
-  const ndDoc =
-    findDocByNumberPart('175/2024') ||
-    findDocByNumberPart('24/2024') ||
-    findDocByNumberPart('99/2021');
-
+  const docMap = new Map(allDocuments.map((d) => [d.id, d]));
   const isAmended = Boolean(article.is_amended);
   const amendingCode =
-    article.amendment_info?.amending_doc_number || '56/2024/QH15';
+    article.amendment_info?.amending_doc_number || '';
 
-  const matrixItems: CrossLawMatrixItem[] = [
-    {
-      target_law_domain: 'Luật Xây dựng & Quản lý chi phí ĐTXD',
-      target_doc_id: lxdDoc?.id,
-      target_doc_number: lxdDoc?.doc_number || '135/2025/QH15',
-      target_clause_ref: 'Điều 14, Điều 112 & Điều 136 (Thanh quyết toán vốn ĐTXD)',
+  const matrixItems: CrossLawMatrixItem[] = [];
+
+  // 1. Nạp liên kết từ văn bản sửa đổi trực tiếp của Điều khoản (nếu có trong SSoT)
+  if (isAmended && amendingCode) {
+    const amendingDoc =
+      (article.amendment_info?.amending_doc_id
+        ? docMap.get(article.amendment_info.amending_doc_id)
+        : undefined) ||
+      allDocuments.find(
+        (d) =>
+          d.doc_number.trim().toLowerCase() === amendingCode.trim().toLowerCase()
+      );
+
+    matrixItems.push({
+      target_law_domain: amendingDoc?.field || doc.field,
+      target_doc_id: amendingDoc?.id || article.amendment_info?.amending_doc_id,
+      target_doc_number: amendingDoc?.doc_number || amendingCode,
+      target_clause_ref: article.article_no,
       relation_nature: 'ĐỒNG BỘ BẮT BUỘC',
-      cross_analysis: `Quy định tại ${article.article_no} (${doc.doc_number}) là căn cứ trực tiếp để ghi nhận chứng từ, hạch toán chi phí đầu tư xây dựng, nghiệm thu khối lượng hoàn thành và lập Báo cáo quyết toán dự án hoàn thành theo Luật Xây dựng.`,
+      cross_analysis:
+        article.amendment_info?.summary ||
+        `${article.article_no} (${doc.doc_number}) đã được sửa đổi, bổ sung bởi ${amendingCode} (hiệu lực từ ${
+          article.amendment_info?.effective_date || 'theo luật định'
+        }).`,
       audit_evidence_required:
-        'Biên bản nghiệm thu khối lượng hoàn thành (Phụ lục 03a/04), Bảng xác định giá trị khối lượng công việc hoàn thành và chứng từ kế toán hợp lệ.',
-    },
-    {
-      target_law_domain: 'Luật Đấu thầu & Lựa chọn nhà thầu',
-      target_doc_id: ldtDoc?.id,
-      target_doc_number: ldtDoc?.doc_number || '22/2023/QH15 · 57/2024/QH15',
-      target_clause_ref: 'Điều 62, Điều 67 & Điều 70 (Loại hợp đồng, điều chỉnh giá và thanh toán)',
-      relation_nature: 'ĐIỀU KIỆN TIÊN QUYẾT',
-      cross_analysis: `Mọi nghiệp vụ kinh tế - tài chính phát sinh theo ${article.article_no} phải khớp nối 100% với loại hợp đồng (trọn gói, đơn giá cố định, đơn giá điều chỉnh) và Phụ lục hợp đồng đã ký kết hợp pháp theo Luật Đấu thầu.`,
+        'Đối chiếu đúng bản văn có hiệu lực tại thời điểm phát sinh nghiệp vụ pháp lý (Point-in-Time).',
+    });
+  }
+
+  // 2. Nạp liên kết từ các cạnh đồ thị `directCrossRefs` đã xác thực trong kho SSoT
+  for (const xref of directCrossRefs) {
+    const isSource = xref.source_doc_id === doc.id;
+    const otherDocId = isSource ? xref.target_doc_id : xref.source_doc_id;
+    const otherArticleId = isSource
+      ? xref.target_article_id
+      : xref.source_article_id;
+    const otherDoc = docMap.get(otherDocId);
+    if (!otherDoc) continue;
+
+    const otherArt = otherDoc.articles.find((a) => a.id === otherArticleId);
+    const clauseRef = otherArt ? otherArt.article_no : 'Điều 1';
+
+    const relationNature: CrossLawMatrixItem['relation_nature'] =
+      xref.relation_type === 'SUA_DOI_BO_SUNG' || xref.relation_type === 'THAY_THE'
+        ? 'ĐỒNG BỘ BẮT BUỘC'
+        : xref.relation_type === 'HUONG_DAN_THI_HANH'
+        ? 'ĐIỀU KIỆN TIÊN QUYẾT'
+        : 'GIAO THOA THẨM QUYỀN';
+
+    matrixItems.push({
+      target_law_domain: `${otherDoc.field} (${otherDoc.short_title || otherDoc.doc_type})`,
+      target_doc_id: otherDoc.id,
+      target_doc_number: otherDoc.doc_number,
+      target_clause_ref: clauseRef,
+      relation_nature: relationNature,
+      cross_analysis: `${xref.title}: ${xref.description}`,
       audit_evidence_required:
-        'Quyết định phê duyệt KQLCNT, Hợp đồng kinh tế, Bảo lãnh thực hiện hợp đồng/tạm ứng và Hóa đơn điện tử có mã của cơ quan thuế.',
-    },
-    {
-      target_law_domain: 'Luật Đất đai & Tài sản gắn liền với đất',
-      target_doc_id: lddDoc?.id,
-      target_doc_number: lddDoc?.doc_number || '31/2024/QH15',
-      target_clause_ref: 'Điều 111, Điều 158 & Điều 160 (Chi phí GPMB, định giá đất & ghi nhận tài sản)',
-      relation_nature: 'GIAO THOA THẨM QUYỀN',
-      cross_analysis: `Khi xác định giá trị tài sản, chi phí bồi thường, hỗ trợ, tái định cư hoặc giá trị hợp lý theo ${article.article_no}, đơn vị kế toán và Ban QLDA phải đối chiếu Phương án bồi thường được phê duyệt và bảng giá đất/giá đất cụ thể theo Luật Đất đai 2024.`,
-      audit_evidence_required:
-        'Quyết định thu hồi đất, Quyết định phê duyệt phương án bồi thường GPMB và chứng từ chi trả qua Kho bạc Nhà nước.',
-    },
-    {
-      target_law_domain: 'Nghị định hướng dẫn & Kiểm soát thanh toán Kho bạc',
-      target_doc_id: ndDoc?.id,
-      target_doc_number: ndDoc?.doc_number || '99/2021/NĐ-CP · 175/2024/NĐ-CP',
-      target_clause_ref: 'Điều 6, Điều 8 & Điều 21 (Hồ sơ kiểm soát cam kết chi & giải ngân)',
-      relation_nature: 'RỦI RO XUNG ĐỘT HỒ SƠ',
-      cross_analysis: isAmended
-        ? `${article.article_no} đã được sửa đổi, bổ sung bởi [${amendingCode}]. Nếu hồ sơ trình Kho bạc hoặc báo cáo kiểm toán vẫn viện dẫn nội dung cũ trước ngày có hiệu lực của văn bản sửa đổi sẽ bị trả hồ sơ hoặc xuất toán.`
-        : `Trình tự lập, ký số và lưu trữ hồ sơ theo ${article.article_no} phải tuân thủ quy trình kiểm soát thanh toán vốn đầu tư công qua hệ thống dịch vụ công trực tuyến của Kho bạc Nhà nước.`,
-      audit_evidence_required:
-        'Giấy đề nghị thanh toán vốn đầu tư (Mẫu 04a), Giấy rút vốn đầu tư và chữ ký số chuyên dùng hợp lệ.',
-    },
-  ];
+        xref.comparison_highlight?.legal_impact ||
+        `Đối chiếu đồng bộ hồ sơ theo ${clauseRef} (${otherDoc.doc_number}).`,
+    });
+  }
+
+  // 3. Nếu không có liên kết trực tiếp trong SSoT -> Thực thi Honest Abstention (Không bịa đặt liên kết 4 luật xây dựng/đất đai/đấu thầu)
+  if (matrixItems.length === 0) {
+    return {
+      executive_conclusion: `[Honest Abstention — Trung thực Tri thức SSoT]: Hiện chưa có liên kết đối soát chéo trực tiếp nào được đăng ký trong đồ thị SSoT cho ${article.article_no} (${doc.doc_number} — Lĩnh vực: ${doc.field}). Hệ thống tuyệt đối không tự ý gán ghép các đạo luật ngoài lĩnh vực khi không có kết nối AI hoặc liên kết SSoT xác thực.`,
+      deduction_risk_level: isAmended ? 'CAO' : 'TRUNG BÌNH',
+      deduction_risk_warning: `Vui lòng kiểm tra trực tiếp nội dung nguyên văn của ${article.article_no} (${doc.doc_number}) trong kho SSoT. Khi mất kết nối máy chủ AI, hệ thống chỉ hiển thị các liên kết có thật trong SSoT và không sinh nhận định giả định.`,
+      matrix_items: [],
+      mandatory_checklist: [
+        `Rà soát trực tiếp nội dung ${article.article_no} (${article.article_title}) của văn bản ${doc.doc_number}.`,
+        'Kiểm tra hiệu lực thời điểm áp dụng (Point-in-Time) của văn bản trước khi ban hành quyết định.',
+      ],
+    };
+  }
 
   return {
-    executive_conclusion: `Ma trận đối soát chéo xác nhận ${article.article_no} (${article.article_title}) của ${doc.doc_number} có liên kết pháp lý trực tiếp với Luật Xây dựng, Luật Đấu thầu, Luật Đất đai và quy trình kiểm soát chi của Kho bạc Nhà nước.${
+    executive_conclusion: `Ma trận đối soát chéo tất định từ kho SSoT xác nhận ${article.article_no} (${article.article_title}) của ${doc.doc_number} có ${matrixItems.length} liên kết pháp lý trực tiếp đã xác thực.${
       isAmended
-        ? ` Đặc biệt lưu ý: Điều khoản này đã qua sửa đổi bởi ${amendingCode}, bắt buộc áp dụng theo quy định mới.`
+        ? ` Đặc biệt lưu ý: Điều khoản này đã qua sửa đổi bởi ${amendingCode}, bắt buộc áp dụng đúng thời điểm hiệu lực.`
         : ''
     }`,
     deduction_risk_level: isAmended ? 'RẤT CAO' : 'CAO',
     deduction_risk_warning: isAmended
-      ? `CẢNH BÁO RỦI RO XUẤT TOÁN RẤT CAO: ${article.article_no} đã bị sửa đổi bởi ${amendingCode}. Việc áp dụng biểu mẫu/quy định cũ trước thời điểm hiệu lực hoặc thiếu chữ ký số/chứng từ đồng bộ với hợp đồng xây dựng - đấu thầu sẽ dẫn đến nguy cơ bị Kiểm toán Nhà nước xuất toán chi phí hoặc Kho bạc Nhà nước từ chối giải ngân.`
-      : `CẢNH BÁO RỦI RO XUẤT TOÁN CAO: Nếu thông tin, số liệu hoặc chứng từ thực hiện theo ${article.article_no} (${doc.doc_number}) không khớp nối đồng bộ với Biên bản nghiệm thu (Luật Xây dựng), Phụ lục hợp đồng (Luật Đấu thầu) và Phương án GPMB (Luật Đất đai), khoản chi có nguy cơ bị loại khỏi giá trị quyết toán vốn đầu tư.`,
+      ? `CẢNH BÁO RỦI RO ÁP DỤNG SAI THỜI ĐIỂM HIỆU LỰC: ${article.article_no} đã bị sửa đổi bởi ${amendingCode}. Việc viện dẫn nội dung cũ sau ngày có hiệu lực của văn bản sửa đổi sẽ dẫn đến rủi ro bị xuất toán hoặc trả hồ sơ.`
+      : `CẢNH BÁO ĐỒNG BỘ HỒ SƠ: Khi áp dụng ${article.article_no} (${doc.doc_number}), cần đối chiếu đồng bộ với ${matrixItems.length} văn bản liên kết trực tiếp trong kho SSoT.`,
     matrix_items: matrixItems,
     mandatory_checklist: [
       `Kiểm tra tính hiệu lực của ${article.article_no} (${doc.doc_number})${
         isAmended ? ` và áp dụng đúng nội dung sửa đổi tại ${amendingCode}` : ''
       } trước khi trình ký hồ sơ.`,
-      'Đối chiếu khớp đúng 100% số liệu giữa Chứng từ kế toán — Biên bản nghiệm thu khối lượng — Phụ lục hợp đồng đấu thầu.',
-      'Đảm bảo đầy đủ chữ ký số hợp lệ và lưu trữ hồ sơ điện tử phục vụ hậu kiểm của Kiểm toán Nhà nước & Thanh tra.',
+      ...matrixItems
+        .slice(0, 3)
+        .map(
+          (m) =>
+            `Đối chiếu ${m.target_clause_ref} (${m.target_doc_number}): ${m.audit_evidence_required}`
+        ),
     ],
   };
 }
@@ -145,11 +175,6 @@ export const CrossLawAiDrawer: React.FC<CrossLawAiDrawerProps> = ({
   const [aiError, setAiError] = useState<string | null>(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const baselineMatrix = useMemo(() => {
-    if (!sourceDoc || !sourceArticle) return null;
-    return buildBaselineCrossLawMatrix(sourceDoc, sourceArticle, allDocuments);
-  }, [sourceDoc, sourceArticle, allDocuments]);
-
   // Existing SSoT cross-references specifically touching this document or article
   const directCrossRefs = useMemo(() => {
     if (!sourceDoc || !sourceArticle) return [];
@@ -161,6 +186,16 @@ export const CrossLawAiDrawer: React.FC<CrossLawAiDrawerProps> = ({
         x.target_doc_id === sourceDoc.id
     );
   }, [sourceDoc, sourceArticle, crossReferences]);
+
+  const baselineMatrix = useMemo(() => {
+    if (!sourceDoc || !sourceArticle) return null;
+    return buildBaselineCrossLawMatrix(
+      sourceDoc,
+      sourceArticle,
+      allDocuments,
+      directCrossRefs
+    );
+  }, [sourceDoc, sourceArticle, allDocuments, directCrossRefs]);
 
   const runCrossLawPromptEngine = async () => {
     if (!sourceDoc || !sourceArticle) return;
@@ -381,20 +416,55 @@ export const CrossLawAiDrawer: React.FC<CrossLawAiDrawerProps> = ({
                 </div>
 
                 <div className="space-y-3">
+                  {activeData.matrix_items.length === 0 ? (
+                    <div className="p-4 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 text-xs text-amber-950 dark:text-amber-200 space-y-1">
+                      <div className="font-bold">
+                        [Honest Abstention Protocol — Không tìm thấy liên kết trực tiếp trong SSoT]
+                      </div>
+                      <p>
+                        Điều khoản <b>{sourceArticle.article_no}</b> ({sourceDoc.doc_number}) hiện chưa có cạnh liên kết trực tiếp trong kho SSoT. Hệ thống không tự động gán các văn bản ngoài ngành khi chưa có kết quả kiểm chứng.
+                      </p>
+                    </div>
+                  ) : null}
                   {activeData.matrix_items.map((item, idx) => {
+                    const citationCheck =
+                      item.citation_verification ||
+                      verifyCitationAgainstCorpus(
+                        `${item.target_clause_ref} (${item.target_doc_number})`,
+                        item.target_doc_number,
+                        item.target_clause_ref,
+                        allDocuments
+                      );
+
                     const matchedDoc =
                       (item.target_doc_id
                         ? allDocuments.find((d) => d.id === item.target_doc_id)
                         : undefined) ||
-                      allDocuments.find(
-                        (d) =>
-                          item.target_doc_number &&
-                          d.doc_number
-                            .toLowerCase()
-                            .includes(
-                              item.target_doc_number.split(' ')[0].toLowerCase()
-                            )
-                      );
+                      (citationCheck.matched_doc_id
+                        ? allDocuments.find((d) => d.id === citationCheck.matched_doc_id)
+                        : undefined);
+
+                    const verificationBadge =
+                      citationCheck.status === 'VERIFIED_FULL_SSOT' ||
+                      citationCheck.status === 'VERIFIED_EXCERPT_SSOT'
+                        ? {
+                            label: '✓ Đã xác thực trong SSoT',
+                            cls: 'bg-emerald-100 text-emerald-900 border-emerald-400 dark:bg-emerald-950/80 dark:text-emerald-200',
+                          }
+                        : citationCheck.status === 'DOC_FOUND_ARTICLE_UNLOADED'
+                        ? {
+                            label: '⚠ Văn bản có trong SSoT · Điều chưa nạp toàn văn',
+                            cls: 'bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-950/80 dark:text-amber-200',
+                          }
+                        : citationCheck.status === 'BLOCKED_HALLUCINATION'
+                        ? {
+                            label: '⛔ Cảnh báo Trích dẫn Ảo (Vượt số Điều/Khoản)',
+                            cls: 'bg-red-100 text-red-900 border-red-400 dark:bg-red-950/80 dark:text-red-200',
+                          }
+                        : {
+                            label: '✗ Trích dẫn ngoài SSoT · Cần tra cứu Công báo',
+                            cls: 'bg-stone-200 text-stone-800 border-stone-400 dark:bg-stone-800 dark:text-stone-300',
+                          };
 
                     const badgeColor =
                       item.relation_nature === 'ĐỒNG BỘ BẮT BUỘC'
@@ -422,6 +492,12 @@ export const CrossLawAiDrawer: React.FC<CrossLawAiDrawerProps> = ({
                               className={`px-2 py-0.5 rounded border text-[10px] font-bold ${badgeColor}`}
                             >
                               {item.relation_nature}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded border text-[10px] font-bold ${verificationBadge.cls}`}
+                              title={citationCheck.verification_note}
+                            >
+                              {verificationBadge.label}
                             </span>
                           </div>
 

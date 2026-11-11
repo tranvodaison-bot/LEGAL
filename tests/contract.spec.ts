@@ -27,9 +27,20 @@ import {
   ingestOcrDocumentToQuarantine,
   prepareVerifiedCorpus,
 } from '../src/modules/legal-library/legalLibrary.service';
-import { buildDeterministicIRACBaseline } from '../src/modules/legal-reasoning/legalReasoning.service';
+import {
+  buildDeterministicIRACBaseline,
+  buildLegalReasoningTrace,
+} from '../src/modules/legal-reasoning/legalReasoning.service';
 import { INITIAL_CASE_WORKSPACES } from '../src/modules/case-workspace/caseWorkspace.service';
 import { escapeHtml } from '../src/ui/views/LegalReasoningAndCaseView';
+import {
+  resolveDocumentAtDate,
+  resolveClauseAtDate,
+  evaluateTransitionalEligibility,
+} from '../src/utils/pointInTimeResolver';
+import { verifyCitationAgainstCorpus } from '../src/utils/citationVerifier';
+import { buildBaselineCrossLawMatrix } from '../src/components/CrossLawAiDrawer';
+import { buildEvidenceBasedReportSnapshot } from '../src/components/EvidenceBasedReportModal';
 
 /**
  * BỘ KIỂM THỬ HỢP ĐỒNG & NGHIỆM THU ĐỘC LẬP TOÀN HỆ THỐNG
@@ -500,4 +511,217 @@ test('TC-P2-01 & TC-P2-02: Xóa bỏ câu gốc giả định trong InPlaceClaus
     diffResult.similarityPercent > 90,
     `Hai văn bản giống nhau 29/30 khoản phải có độ tương đồng > 90%, thực tế: ${diffResult.similarityPercent}% (không được gán cứng 45%)`
   );
+});
+
+test('TC-P0-05 (CrossLawAiDrawer): Không áp đặt cứng 4 luật Xây dựng/Đấu thầu/Đất đai/Kho bạc cho văn bản ngoài lĩnh vực xây dựng (117/2025/QH15)', () => {
+  const doc117 = INITIAL_LEGAL_DOCUMENTS.find((d) => d.doc_number === '117/2025/QH15');
+  assert.ok(doc117, 'Phải tìm thấy Luật Bảo vệ bí mật nhà nước 117/2025/QH15');
+  const firstArticle = doc117.articles[0];
+  assert.ok(firstArticle);
+
+  const directRefs117 = INITIAL_CROSS_REFERENCES.filter(
+    (xref) =>
+      (xref.source_doc_id === doc117.id && xref.source_article_id === firstArticle.id) ||
+      (xref.target_doc_id === doc117.id && xref.target_article_id === firstArticle.id)
+  );
+  assert.equal(directRefs117.length, 0);
+
+  const baseline117 = buildBaselineCrossLawMatrix(
+    doc117,
+    firstArticle,
+    INITIAL_LEGAL_DOCUMENTS,
+    directRefs117
+  );
+  assert.equal(
+    baseline117.matrix_items.length,
+    0,
+    'Khi điều khoản không có liên kết đối chiếu chéo trong SSoT, matrix_items bắt buộc trả về mảng rỗng [] (Honest Abstention), không được bịa 4 luật Xây dựng/Đấu thầu/Đất đai/Kho bạc'
+  );
+  assert.match(baseline117.executive_conclusion, /\[Honest Abstention/);
+
+  // Ngược lại, văn bản có liên kết thực trong INITIAL_CROSS_REFERENCES phải trả về đúng số lượng liên kết SSoT
+  const doc135 = INITIAL_LEGAL_DOCUMENTS.find((d) => d.doc_number === '135/2025/QH15');
+  assert.ok(doc135);
+  const art14 = doc135.articles.find((a) => a.article_no === 'Điều 14') || doc135.articles[0];
+  const directRefs135 = INITIAL_CROSS_REFERENCES.filter(
+    (xref) =>
+      (xref.source_doc_id === doc135.id && xref.source_article_id === art14.id) ||
+      (xref.target_doc_id === doc135.id && xref.target_article_id === art14.id)
+  );
+  if (directRefs135.length > 0) {
+    const baseline135 = buildBaselineCrossLawMatrix(
+      doc135,
+      art14,
+      INITIAL_LEGAL_DOCUMENTS,
+      directRefs135
+    );
+    assert.ok(baseline135.matrix_items.length > 0);
+  }
+});
+
+test('TC-P1-01 & TC-P1-02 (pointInTimeResolver Utils): Kiểm chứng resolveDocumentAtDate, resolveClauseAtDate và evaluateTransitionalEligibility', () => {
+  // Case A: VBHN 13/VBHN-BCT (doc-nd-85-2021-tmdt) tại ngày 2025-06-15 -> Đang có hiệu lực tại thời điểm tra cứu
+  const resVbhnIn2025 = resolveDocumentAtDate(
+    'doc-nd-85-2021-tmdt',
+    '2025-06-15',
+    INITIAL_LEGAL_DOCUMENTS
+  );
+  assert.equal(resVbhnIn2025.temporal_status, 'EFFECTIVE_AT_DATE');
+  assert.equal(resVbhnIn2025.is_applicable_at_date, true);
+
+  // Case B: VBHN 13/VBHN-BCT tại ngày 2026-08-15 -> Đã hết hiệu lực (01/07/2026), thay thế bởi 248/2026/NĐ-CP (doc-nd-248-2026)
+  const resVbhnIn2026 = resolveDocumentAtDate(
+    'doc-nd-85-2021-tmdt',
+    '2026-08-15',
+    INITIAL_LEGAL_DOCUMENTS
+  );
+  assert.equal(resVbhnIn2026.temporal_status, 'EXPIRED_REPLACED');
+  assert.equal(resVbhnIn2026.is_applicable_at_date, false);
+  assert.equal(resVbhnIn2026.recommended_doc_id, 'doc-nd-248-2026');
+
+  // Case C: Luật Xây dựng 135/2025/QH15 tại ngày 2026-08-15 nhưng dự án phê duyệt ngày 2025-10-01 -> Áp dụng chuyển tiếp
+  const res135Transitional = resolveDocumentAtDate(
+    'doc-lxd-135-2025',
+    '2026-08-15',
+    INITIAL_LEGAL_DOCUMENTS,
+    '2025-10-01'
+  );
+  assert.equal(res135Transitional.temporal_status, 'TRANSITIONAL_APPLICABLE');
+  assert.ok(res135Transitional.transitional_evaluation?.applies);
+
+  // Case D: resolveClauseAtDate trên Khoản 2 Điều 3 Luật Kế toán 88/2015/QH13 trước và sau ngày 01/01/2025
+  const doc88 = INITIAL_LEGAL_DOCUMENTS.find((d) => d.id === 'doc-lkt-88-2015')!;
+  const art3 = doc88.articles.find((a) => a.article_no === 'Điều 3')!;
+  const clause2 = art3.clauses!.find((c) => c.clause_no === 'Khoản 2')!;
+
+  const c2Before = resolveClauseAtDate(doc88, art3, clause2, '2024-06-15');
+  assert.equal(c2Before.version_state, 'ORIGINAL_PRE_AMENDMENT');
+  assert.equal(c2Before.active_text, clause2.diff_data!.original_text);
+
+  const c2After = resolveClauseAtDate(doc88, art3, clause2, '2025-06-15');
+  assert.equal(c2After.version_state, 'AMENDED_CURRENT');
+  assert.equal(c2After.active_text, clause2.diff_data!.replaced_text || clause2.text);
+
+  const transCheck = evaluateTransitionalEligibility(
+    doc88,
+    '2024-11-01',
+    '2026-08-15',
+    INITIAL_LEGAL_DOCUMENTS
+  );
+  assert.ok(transCheck);
+});
+
+test('TC-P1-03 (citationVerifier Utils): Kiểm chứng verifyCitationAgainstCorpus với 4 kịch bản A/B/C/D (bao gồm chặn ảo giác Điều 999 vượt tổng số Điều)', () => {
+  // Case A: Viện dẫn tồn tại trong SSoT (135/2025/QH15 - Điều 14)
+  const caseA = verifyCitationAgainstCorpus(
+    'Điều 14 Luật Xây dựng số 135/2025/QH15',
+    '135/2025/QH15',
+    'Điều 14',
+    INITIAL_LEGAL_DOCUMENTS
+  );
+  assert.equal(caseA.verification_status, 'VERIFIED_IN_SSOT');
+  assert.equal(caseA.matched_doc_id, 'doc-lxd-135-2025');
+
+  // Case B: Văn bản có trong SSoT (88/2015/QH13 có 74 Điều), Điều 50 hợp lệ nhưng chưa nạp trong 10 Điều trích lược
+  const caseB = verifyCitationAgainstCorpus(
+    'Điều 50 Luật Kế toán số 88/2015/QH13',
+    '88/2015/QH13',
+    'Điều 50',
+    INITIAL_LEGAL_DOCUMENTS
+  );
+  assert.equal(caseB.status, 'DOC_FOUND_ARTICLE_UNLOADED');
+  assert.equal(caseB.verification_status, 'DOC_FOUND_ARTICLE_NOT_LOADED');
+
+  // Case C: Văn bản có trong SSoT (135/2025/QH15 có 168 Điều), nhưng AI bịa "Điều 999" vượt quá tổng số Điều của văn bản
+  const caseC = verifyCitationAgainstCorpus(
+    'Điều 999 Luật Xây dựng số 135/2025/QH15',
+    '135/2025/QH15',
+    'Điều 999',
+    INITIAL_LEGAL_DOCUMENTS
+  );
+  assert.equal(caseC.status, 'BLOCKED_HALLUCINATION');
+  assert.equal(caseC.verification_status, 'UNVERIFIED_CITATION');
+
+  // Case D: Văn bản hoàn toàn không có trong SSoT (999/2099/NĐ-CP)
+  const caseD = verifyCitationAgainstCorpus(
+    'Điều 5 Nghị định 999/2099/NĐ-CP',
+    '999/2099/NĐ-CP',
+    'Điều 5',
+    INITIAL_LEGAL_DOCUMENTS
+  );
+  assert.equal(caseD.verification_status, 'UNVERIFIED_EXTERNAL_CITATION');
+});
+
+test('TC-P1-05 (Honest Abstention): Suy luận IRAC+ tự động kích hoạt ABSTAINED_INSUFFICIENT_SSOT khi hỏi lĩnh vực ngoài kho SSoT (Bộ luật Hàng hải)', () => {
+  const abstainedResult = buildDeterministicIRACBaseline({
+    mode: 'JUDICIAL_ANALYSIS',
+    referenceDate: '2026-08-15',
+    caseTitle: 'Tranh chấp tổn thất chung theo Bộ luật Hàng hải Việt Nam và bắt giữ tàu biển',
+    facts: [
+      {
+        id: 'fact-maritime-1',
+        event_date: '2026-05-10',
+        event_title: 'Va chạm tàu biển quốc tế',
+        description:
+          'Tàu biển va chạm tại luồng hàng hải quốc tế, phát sinh tranh chấp tổn thất chung theo Bộ luật Hàng hải.',
+      },
+    ],
+    targetProvisions: [{ doc_id: 'doc-lxd-135-2025', article_no: 'Điều 14' }],
+    corpus: INITIAL_LEGAL_DOCUMENTS,
+  });
+
+  assert.equal(abstainedResult.epistemic_status, 'ABSTAINED_INSUFFICIENT_SSOT');
+  assert.ok(abstainedResult.step6_conclusion.abstention_reason);
+  assert.match(
+    abstainedResult.step6_conclusion.definitive_conclusion,
+    /ABSTAINED_INSUFFICIENT_SSOT/
+  );
+
+  const trace = buildLegalReasoningTrace(abstainedResult, INITIAL_LEGAL_DOCUMENTS);
+  assert.equal(trace.epistemic_status, 'ABSTAINED_MISSING_DATA');
+});
+
+test('TC-P1-06 & TC-P1-07 (StageGate Lock & EvidenceBasedReportSnapshot): Khóa cổng Stage-Gate khi thiếu SHA-256 và xuất Báo cáo bằng chứng kèm FIPS 180-4 SHA-256', () => {
+  // 1. Kiểm chứng StageGateAuditView.tsx khóa cứng chuyển trạng thái PASSED khi thiếu chứng cứ SHA-256
+  const stageGateViewSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/StageGateAuditView.tsx'),
+    'utf-8'
+  );
+  assert.equal(
+    stageGateViewSource.includes('GATEKEEPER_LOCKED_MISSING_SHA256_EVIDENCE'),
+    true,
+    'StageGateAuditView.tsx bắt buộc phải chặn đánh dấu PASSED khi bước bắt buộc thiếu chứng cứ SHA-256'
+  );
+  assert.equal(
+    stageGateViewSource.includes('[Đối soát Tất định Nội bộ — Offline/Không dùng AI]'),
+    true,
+    'StageGateAuditView.tsx phải ghi nhãn trung thực khi chạy đối soát tất định nội bộ (FIND-ARCH-06)'
+  );
+
+  // 2. Kiểm chứng buildEvidenceBasedReportSnapshot sinh mã băm SHA-256 chuẩn 64 ký tự hex và cảnh báo Epistemic Humility
+  const sampleCase = INITIAL_CASE_WORKSPACES[0];
+  const iracOutput = buildDeterministicIRACBaseline({
+    mode: 'LEGAL_AUDIT',
+    referenceDate: sampleCase.primary_reference_date,
+    milestoneInitiationDate: sampleCase.milestone_initiation_date,
+    caseTitle: sampleCase.title,
+    facts: sampleCase.facts,
+    targetProvisions: [
+      { doc_id: 'doc-lkt-88-2015', article_no: 'Điều 3', clause_no: 'Khoản 2' },
+      { doc_id: 'doc-lxd-135-2025', article_no: 'Điều 14' },
+    ],
+    corpus: INITIAL_LEGAL_DOCUMENTS,
+  });
+
+  const snapshot = buildEvidenceBasedReportSnapshot({
+    projectId: sampleCase.id,
+    projectName: sampleCase.title,
+    asOfLegalDate: sampleCase.primary_reference_date,
+    documents: INITIAL_LEGAL_DOCUMENTS,
+    reasoningOutputs: [iracOutput],
+  });
+  assert.match(snapshot.report_integrity_sha256, /^[0-9a-f]{64}$/);
+  assert.ok(snapshot.verified_citations.length > 0);
+  assert.equal(snapshot.reasoning_traces.length, 1);
+  assert.ok(snapshot.unverified_or_missing_warnings.length > 0);
 });

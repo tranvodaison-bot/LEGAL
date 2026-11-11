@@ -104,6 +104,10 @@ import {
 import { computeStringSha256Sync } from './infrastructure/crypto/sha256';
 import { computeDocumentCompleteness } from './core/engines/corpusIntegrityValidator';
 import { LegalReasoningAndCaseView } from './ui/views/LegalReasoningAndCaseView';
+import { LegalReasoningDrawer } from './components/LegalReasoningDrawer';
+import { EvidenceBasedReportModal } from './components/EvidenceBasedReportModal';
+import { resolveDocumentAtDate } from './utils/pointInTimeResolver';
+import { IRACPlusReasoningOutput } from './core/entities/legalDomain';
 
 type SidebarVirtualRow =
   | {
@@ -460,7 +464,9 @@ interface ReaderArticleSectionProps {
   onSelectArticle: (articleId: string, scroll?: boolean) => void;
   onAskAqua: (question: string, clauseContext: string) => void;
   onOpenCrossLawDrawer: (art: LegalDocument['articles'][number]) => void;
+  onOpenReasoningDrawer?: (art: LegalDocument['articles'][number]) => void;
   onOpenAmendingDoc?: (amendingDocId: string) => void;
+  asOfDate?: string;
 }
 
 /**
@@ -475,7 +481,9 @@ const ReaderArticleSection = React.memo<ReaderArticleSectionProps>(
     onSelectArticle,
     onAskAqua,
     onOpenCrossLawDrawer,
+    onOpenReasoningDrawer,
     onOpenAmendingDoc,
+    asOfDate,
   }) => {
     const amendingDocCode =
       art.amendment_info?.amending_doc_number || 'Văn bản sửa đổi';
@@ -497,6 +505,21 @@ const ReaderArticleSection = React.memo<ReaderArticleSectionProps>(
             {art.chapter_no} · {art.chapter_title}
           </span>
           <div className="flex flex-wrap items-center gap-1.5">
+            {onOpenReasoningDrawer && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenReasoningDrawer(art);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs transition"
+                title="Mở Drawer Suy luận Pháp lý 6 Bước (IRAC+) & Xuất Báo cáo bằng chứng (SHA-256) cho Điều khoản này"
+              >
+                <Scale className="w-3.5 h-3.5 text-emerald-200" />
+                <span>⚖ Suy luận IRAC+</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={(e) => {
@@ -577,6 +600,7 @@ const ReaderArticleSection = React.memo<ReaderArticleSectionProps>(
           articleByNoMap={articleByNoMap}
           onSelectArticle={onSelectArticle}
           onOpenAmendingDoc={onOpenAmendingDoc}
+          asOfDate={asOfDate}
         />
 
         {/* Chi tiết Phả hệ sửa đổi của riêng Điều khoản (amendment_info) */}
@@ -843,6 +867,13 @@ export default function App() {
   const [consolidatedDrawerDocId, setConsolidatedDrawerDocId] = useState<
     string | null
   >(null);
+  const [readerAsOfDate, setReaderAsOfDate] = useState<string>('');
+  const [reasoningDrawerState, setReasoningDrawerState] = useState<{
+    doc: LegalDocument;
+    article: LegalDocument['articles'][number] | null;
+  } | null>(null);
+  const [evidenceReportOutput, setEvidenceReportOutput] =
+    useState<IRACPlusReasoningOutput | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
@@ -4151,6 +4182,48 @@ export default function App() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-[11px]">
+                          <Calendar className="w-3.5 h-3.5 text-[#C6A342]" />
+                          <span className="font-bold text-[#152D42] dark:text-amber-300">
+                            Thời điểm hiệu lực:
+                          </span>
+                          <input
+                            type="date"
+                            value={readerAsOfDate}
+                            onChange={(e) => setReaderAsOfDate(e.target.value)}
+                            className="bg-transparent font-mono-code font-bold text-[#152D42] dark:text-stone-100 focus:outline-none cursor-pointer"
+                            title="Chọn ngày sự kiện pháp lý (Point-in-Time Reference Date) để tự động đối chiếu hiệu lực văn bản và hiển thị phiên bản điều khoản tương ứng"
+                          />
+                          {readerAsOfDate && (
+                            <button
+                              type="button"
+                              onClick={() => setReaderAsOfDate('')}
+                              className="text-[10px] text-stone-400 hover:text-red-600 font-bold cursor-pointer"
+                              title="Xóa mốc thời gian để xem trạng thái hiện hành"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setReasoningDrawerState({
+                              doc: inspectedDoc,
+                              article:
+                                inspectedArticle ||
+                                inspectedDoc.articles[0] ||
+                                null,
+                            })
+                          }
+                          className="px-3 py-1 rounded-lg bg-emerald-800 hover:bg-emerald-700 text-white border border-emerald-500/70 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
+                          title="Mở Drawer Suy luận Pháp lý 6 Bước (IRAC+) & Xuất Báo cáo bằng chứng có kiểm chứng SHA-256"
+                        >
+                          <Scale className="w-3.5 h-3.5 text-emerald-200" />
+                          <span>⚖ Suy luận IRAC+ (6 bước)</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={() =>
@@ -4319,6 +4392,57 @@ export default function App() {
                     </div>
                   )}
 
+                  {/* BANNER HIỆU LỰC THEO THỜI ĐIỂM (POINT-IN-TIME RESOLUTION BANNER) */}
+                  {readerAsOfDate &&
+                    (() => {
+                      const pitRes = resolveDocumentAtDate(
+                        inspectedDoc,
+                        readerAsOfDate,
+                        documents
+                      );
+                      return (
+                        <div
+                          className={`p-3 rounded-xl border text-xs flex flex-wrap items-center justify-between gap-2 ${
+                            pitRes.is_applicable_at_date
+                              ? 'bg-emerald-50/90 dark:bg-emerald-950/30 border-emerald-400 text-emerald-900 dark:text-emerald-200'
+                              : 'bg-amber-50/95 dark:bg-amber-950/40 border-amber-400 text-amber-950 dark:text-amber-200'
+                          }`}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="font-bold flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5 shrink-0" />
+                              <span>
+                                Đối chiếu hiệu lực thời điểm (Point-in-Time:{' '}
+                                {readerAsOfDate}) — Trạng thái:{' '}
+                                <span className="font-mono-code underline">
+                                  {pitRes.temporal_status}
+                                </span>
+                              </span>
+                            </div>
+                            <p className="text-[11px] leading-relaxed">
+                              {pitRes.explanation}
+                            </p>
+                          </div>
+                          {pitRes.recommended_doc_id &&
+                            pitRes.recommended_doc_id !== inspectedDoc.id && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const target = docMap.get(
+                                    pitRes.recommended_doc_id!
+                                  );
+                                  if (target) handleSelectDocInGrid(target);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-[#152D42] text-[#E9C96D] font-bold text-[11px] cursor-pointer shrink-0"
+                              >
+                                Mở VB có hiệu lực tại ngày {readerAsOfDate} (
+                                {pitRes.recommended_doc_number}) →
+                              </button>
+                            )}
+                        </div>
+                      );
+                    })()}
+
                   {/* ARTICLES CONTENT STREAM: CONTINUOUS A4 VIEW (WITH STICKY FLOATING TOC) OR CLAUSE CARDS */}
                   {readerViewFormat === 'continuous' ? (
                     <div ref={tocSectionRef}>
@@ -4327,6 +4451,7 @@ export default function App() {
                         activeArticleId={inspectedArticle?.id || null}
                         fontSizePx={readerSettings.fontSizePx || 16}
                         articleByNoMap={inspectedArticleByNoMap}
+                        asOfDate={readerAsOfDate || undefined}
                         onSelectArticle={handleSelectArticleInReader}
                         onOpenCrossLawDrawer={(targetArt) =>
                           setCrossLawDrawerState({
@@ -4352,10 +4477,17 @@ export default function App() {
                           docNumber={inspectedDoc.doc_number}
                           isFocused={inspectedArticle?.id === art.id}
                           articleByNoMap={inspectedArticleByNoMap}
+                          asOfDate={readerAsOfDate || undefined}
                           onSelectArticle={handleSelectArticleInReader}
                           onAskAqua={handleAskAquaWithContext}
                           onOpenCrossLawDrawer={(targetArt) =>
                             setCrossLawDrawerState({
+                              doc: inspectedDoc,
+                              article: targetArt,
+                            })
+                          }
+                          onOpenReasoningDrawer={(targetArt) =>
+                            setReasoningDrawerState({
                               doc: inspectedDoc,
                               article: targetArt,
                             })
@@ -4483,6 +4615,7 @@ export default function App() {
                     auditRecords={mcpAuditRecords}
                     currentDocNumber={inspectedDoc.doc_number}
                     currentArticleNo={inspectedArticle?.article_no}
+                    documents={documents}
                     isMcpLoading={isMcpLoading}
                     onToggleChecklistItem={handleToggleMcpChecklistItem}
                     onMarkAllChecklistItems={handleMarkAllMcpChecklistItems}
@@ -4884,6 +5017,29 @@ export default function App() {
           setConsolidatedDrawerDocId(null);
           setGenealogyDrawerDocId(targetDoc.id);
         }}
+      />
+
+      {/* Structured 6-Step IRAC+ Legal Reasoning Drawer ("⚖ Suy luận IRAC+") */}
+      <LegalReasoningDrawer
+        isOpen={Boolean(reasoningDrawerState)}
+        onClose={() => setReasoningDrawerState(null)}
+        document={reasoningDrawerState?.doc || null}
+        article={reasoningDrawerState?.article || null}
+        allDocuments={documents}
+        initialAsOfDate={readerAsOfDate || '2026-08-15'}
+        onOpenEvidenceReport={(output) => {
+          setEvidenceReportOutput(output);
+        }}
+      />
+
+      {/* Evidence-Based Report Export Modal with FIPS 180-4 SHA-256 Checksum */}
+      <EvidenceBasedReportModal
+        isOpen={Boolean(evidenceReportOutput)}
+        onClose={() => setEvidenceReportOutput(null)}
+        asOfDate={readerAsOfDate || '2026-08-15'}
+        documents={documents}
+        auditRecords={mcpAuditRecords}
+        reasoningOutputs={evidenceReportOutput ? [evidenceReportOutput] : []}
       />
     </div>
   );

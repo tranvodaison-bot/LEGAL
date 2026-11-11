@@ -7,6 +7,7 @@ interface InPlaceClauseDiffViewerProps {
   articleByNoMap: Map<string, LegalArticle>;
   onSelectArticle: (articleId: string, scroll?: boolean) => void;
   onOpenAmendingDoc?: (amendingDocId: string) => void;
+  asOfDate?: string;
 }
 
 /**
@@ -104,6 +105,7 @@ export const InPlaceClauseDiffViewer: React.FC<InPlaceClauseDiffViewerProps> = (
   articleByNoMap,
   onSelectArticle,
   onOpenAmendingDoc,
+  asOfDate,
 }) => {
   const { preamble, clauses } = useMemo(
     () => resolveArticleClauses(article),
@@ -156,8 +158,30 @@ export const InPlaceClauseDiffViewer: React.FC<InPlaceClauseDiffViewerProps> = (
     );
   }
 
+  const officialClauseCount =
+    article.total_clauses_in_official_article ?? article.clause_count ?? clauses.length;
+
   return (
     <div className="space-y-2.5">
+      {officialClauseCount > clauses.length && clauses.length > 0 && (
+        <div className="px-3 py-1.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/40 border border-amber-300/70 dark:border-amber-800 text-[11px] font-sans text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2">
+          <span>
+            📑 Đang hiển thị <b>{clauses.length}/{officialClauseCount}</b> khoản đã nạp nguyên văn của <b>{article.article_no}</b>
+          </span>
+          <span className="font-mono-code text-[10px] px-1.5 py-0.5 rounded bg-amber-200/70 dark:bg-amber-900/70 font-bold">
+            Trích lược Khoản trọng tâm
+          </span>
+        </div>
+      )}
+
+      {article.is_amended &&
+        !article.amendment_info?.previous_excerpt &&
+        !clauses.some((c) => c.diff_data?.original_text) && (
+          <div className="px-3 py-2 rounded-lg bg-stone-100 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-xs font-sans text-stone-700 dark:text-stone-300">
+            ℹ️ <b>Chưa nạp nguyên văn lời văn gốc trước sửa đổi — Vui lòng đối chiếu Công báo:</b> Điều khoản này đã được sửa đổi{article.amendment_info?.amending_doc_number ? ` bởi ${article.amendment_info.amending_doc_number}` : ''}, hệ thống không tự sinh câu gốc giả định khi thiếu dữ liệu lịch sử xác thực.
+          </div>
+        )}
+
       {preamble && (
         <div className="text-stone-700 dark:text-stone-300 italic text-sm">
           {renderLinkedText(preamble)}
@@ -169,6 +193,33 @@ export const InPlaceClauseDiffViewer: React.FC<InPlaceClauseDiffViewerProps> = (
         const isExpanded = Boolean(expandedDiffIds[clause.id]);
         const diff = clause.diff_data;
 
+        const renderClausePoints = () => {
+          if (clause.structured_points && clause.structured_points.length > 0) {
+            return (
+              <ul className="mt-1.5 pl-4 space-y-1 text-xs sm:text-sm text-stone-700 dark:text-stone-300 border-l-2 border-stone-300 dark:border-stone-700">
+                {clause.structured_points.map((pt) => (
+                  <li key={pt.id}>
+                    <b className="font-mono-code text-[#152D42] dark:text-amber-300">
+                      {pt.point_letter}:
+                    </b>{' '}
+                    {renderLinkedText(pt.text)}
+                  </li>
+                ))}
+              </ul>
+            );
+          }
+          if (clause.points && clause.points.length > 0) {
+            return (
+              <ul className="mt-1.5 pl-4 space-y-1 text-xs sm:text-sm text-stone-700 dark:text-stone-300 border-l-2 border-stone-300 dark:border-stone-700">
+                {clause.points.map((ptText, pIdx) => (
+                  <li key={pIdx}>{renderLinkedText(ptText)}</li>
+                ))}
+              </ul>
+            );
+          }
+          return null;
+        };
+
         if (!isAmendedClause || !diff) {
           return (
             <div
@@ -176,6 +227,7 @@ export const InPlaceClauseDiffViewer: React.FC<InPlaceClauseDiffViewerProps> = (
               className="p-2.5 rounded-xl bg-stone-50/70 dark:bg-stone-900/40 border border-stone-200/70 dark:border-stone-800/80 text-stone-800 dark:text-stone-200 leading-relaxed whitespace-pre-line"
             >
               {renderLinkedText(clause.text)}
+              {renderClausePoints()}
             </div>
           );
         }
@@ -184,6 +236,9 @@ export const InPlaceClauseDiffViewer: React.FC<InPlaceClauseDiffViewerProps> = (
           diff.amending_doc_number ||
           article.amendment_info?.amending_doc_number ||
           'Văn bản sửa đổi';
+        const isHistoricalAtAsOfDate = Boolean(
+          asOfDate && diff.effective_date && asOfDate < diff.effective_date
+        );
 
         return (
           <div
@@ -199,6 +254,19 @@ export const InPlaceClauseDiffViewer: React.FC<InPlaceClauseDiffViewerProps> = (
                 <span className="text-[11px] font-mono-code text-amber-800 dark:text-amber-300">
                   Hiệu lực: <b>{diff.effective_date}</b>
                 </span>
+                {asOfDate && (
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono-code font-bold ${
+                      isHistoricalAtAsOfDate
+                        ? 'bg-blue-100 text-blue-900 border border-blue-400 dark:bg-blue-950 dark:text-blue-200'
+                        : 'bg-emerald-100 text-emerald-900 border border-emerald-400 dark:bg-emerald-950 dark:text-emerald-200'
+                    }`}
+                  >
+                    {isHistoricalAtAsOfDate
+                      ? `⏱ Tại ${asOfDate}: Áp dụng BẢN GỐC (trước ${diff.effective_date})`
+                      : `⏱ Tại ${asOfDate}: Áp dụng BẢN SỬA ĐỔI (${amendingCode})`}
+                  </span>
+                )}
                 {diff.amending_doc_id && onOpenAmendingDoc && (
                   <button
                     type="button"
@@ -230,9 +298,12 @@ export const InPlaceClauseDiffViewer: React.FC<InPlaceClauseDiffViewerProps> = (
               </button>
             </div>
 
-            {/* Nội dung hiện hành của Khoản */}
+            {/* Nội dung áp dụng của Khoản (nếu chọn asOfDate trước ngày sửa đổi thì ưu tiên hiển thị bản gốc có chú thích) */}
             <div className="text-stone-900 dark:text-stone-100 leading-relaxed whitespace-pre-line">
-              {renderLinkedText(clause.text)}
+              {isHistoricalAtAsOfDate && diff.original_text
+                ? renderLinkedText(diff.original_text)
+                : renderLinkedText(clause.text)}
+              {renderClausePoints()}
             </div>
 
             {/* Khối In-place Diff mở rộng khi bấm "So sánh với bản gốc" */}

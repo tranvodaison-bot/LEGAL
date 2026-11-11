@@ -1,11 +1,38 @@
-import type { LegalDocument } from '../../types/legal';
+import type {
+  EpistemicConclusionStatus,
+  LegalDocument,
+  LegalReasoningTrace,
+} from '../../types/legal';
 import type {
   CaseFactEvent,
   IRACPlusReasoningOutput,
   LegalReasoningMode,
+  PointInTimeResolutionResult,
 } from '../../core/entities/legalDomain';
 import { resolveProvisionAtDate } from '../../core/engines/pointInTimeResolver';
-import { verifyCitationsBatch } from '../../core/engines/citationVerifier';
+import {
+  verifyCitationAgainstCorpus,
+  verifyCitationsBatch,
+} from '../../core/engines/citationVerifier';
+
+const OUT_OF_SSOT_DOMAIN_PATTERNS: Array<{ regex: RegExp; domainName: string }> = [
+  { regex: /hàng hải|tàu biển|tai nạn tàu biển|cảng biển quốc tế|bộ luật hàng hải/i, domainName: 'Pháp luật Hàng hải (Bộ luật Hàng hải)' },
+  { regex: /sở hữu trí tuệ|bằng sáng chế|nhãn hiệu độc quyền|bản quyền tác giả/i, domainName: 'Pháp luật Sở hữu trí tuệ (Luật Sở hữu trí tuệ)' },
+  { regex: /hôn nhân và gia đình|ly hôn|chia tài sản vợ chồng|quyền nuôi con/i, domainName: 'Pháp luật Hôn nhân và Gia đình' },
+  { regex: /hàng không dân dụng|tàu bay|khai thác cảng hàng không/i, domainName: 'Pháp luật Hàng không dân dụng' },
+];
+
+/**
+ * Kiểm tra xem câu hỏi hoặc tình huống vụ việc có thuộc lĩnh vực ngoài phạm vi kho SSoT hiện tại hay không (TC-P1-05).
+ */
+export function detectOutOfCorpusDomain(text: string): string | null {
+  for (const item of OUT_OF_SSOT_DOMAIN_PATTERNS) {
+    if (item.regex.test(text)) {
+      return item.domainName;
+    }
+  }
+  return null;
+}
 
 /**
  * Module 4: Legal Reasoning Service (3 Chế độ × 6 Bước IRAC+)
@@ -35,18 +62,102 @@ export function buildDeterministicIRACBaseline(params: {
     corpus,
   } = params;
 
-  const resolvedList = targetProvisions.map((p) =>
-    resolveProvisionAtDate(
-      {
-        doc_id: p.doc_id,
-        article_no: p.article_no,
-        clause_no: p.clause_no,
-        reference_date: referenceDate,
-        milestone_initiation_date: milestoneInitiationDate,
+  const combinedInputText = `${caseTitle} ${facts.map((f) => `${f.event_title} ${f.description}`).join(' ')}`;
+  const outOfCorpusDomain = detectOutOfCorpusDomain(combinedInputText);
+
+  const resolvedList: PointInTimeResolutionResult[] = [];
+  for (const p of targetProvisions) {
+    try {
+      resolvedList.push(
+        resolveProvisionAtDate(
+          {
+            doc_id: p.doc_id,
+            article_no: p.article_no,
+            clause_no: p.clause_no,
+            reference_date: referenceDate,
+            milestone_initiation_date: milestoneInitiationDate,
+          },
+          corpus
+        )
+      );
+    } catch {
+      // Bỏ qua an toàn nếu điều khoản đích không tồn tại trong kho SSoT (Khắc phục FIND-ARCH-05)
+    }
+  }
+
+  const modeLabel =
+    mode === 'JUDICIAL_ANALYSIS'
+      ? 'Phân tích Tài phán & Xét xử Khách quan (Judicial Analysis)'
+      : mode === 'LEGAL_COUNSEL'
+      ? 'Tư vấn Pháp lý & Bảo vệ Quyền lợi Chủ đầu tư / Doanh nghiệp (Legal Counsel)'
+      : 'Kiểm toán Tuân thủ & Hậu kiểm Rủi ro Xuất toán (Legal Audit)';
+
+  // Nếu câu hỏi thuộc lĩnh vực ngoài kho SSoT (VD: Luật Hàng hải, Sở hữu trí tuệ) hoặc không có quy phạm nào trong SSoT khớp:
+  // Thực thi Honest Abstention (ABSTAINED_INSUFFICIENT_SSOT — TC-P1-05)
+  if (outOfCorpusDomain || resolvedList.length === 0) {
+    const abstentionReason = outOfCorpusDomain
+      ? `Chưa đủ dữ liệu văn bản xác thực trong SSoT cho lĩnh vực [${outOfCorpusDomain}]. Hệ thống từ chối suy đoán hoặc tự bịa số hiệu điều khoản ngoài kho SSoT.`
+      : `Không tìm thấy quy phạm pháp luật xác thực tương ứng trong kho SSoT cho yêu cầu "${caseTitle}". Hệ thống thực thi giao thức Từ chối kết luận khi thiếu căn cứ SSoT (Honest Abstention).`;
+
+    return {
+      reasoning_id: `IRAC-ABSTAIN-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      mode,
+      reference_date: referenceDate,
+      case_title: caseTitle,
+      epistemic_status: 'ABSTAINED_INSUFFICIENT_SSOT',
+      step1_issue: {
+        core_legal_question: `[Chế độ: ${modeLabel}] Yêu cầu phân tích: "${caseTitle}" tại thời điểm ${referenceDate}.`,
+        material_facts: facts.map(
+          (f) => `${f.event_date} — ${f.event_title} (${f.evidence_code || 'Chưa gắn mã chứng cứ'})`
+        ),
+        jurisdiction_and_scope: outOfCorpusDomain
+          ? `Ngoài phạm vi kho SSoT hiện hành (${outOfCorpusDomain}).`
+          : 'Chưa nạp quy phạm tương ứng trong kho SSoT.',
       },
-      corpus
-    )
-  );
+      step2_rules: [],
+      step3_interpretation: {
+        normative_elements: [abstentionReason],
+        temporal_and_transitional_analysis:
+          'Không áp dụng giải hiệu lực Point-in-Time do văn bản chuyên ngành chưa được nạp vào kho SSoT.',
+      },
+      step4_application: {
+        fact_to_rule_mapping: facts.map((f) => ({
+          fact_statement: `[${f.event_date}] ${f.event_title}: ${f.description}`,
+          applied_rule_ref: 'CHƯA CÓ TRONG SSoT',
+          compliance_assessment: 'CẦN BỔ SUNG CHỨNG CỨ',
+          analysis: abstentionReason,
+        })),
+      },
+      step5_counterargument: {
+        inspector_or_opposing_view:
+          'Mọi kết luận pháp lý không dựa trên văn bản quy phạm pháp luật đã xác thực trong kho SSoT đều có nguy cơ dẫn chiếu sai hoặc ảo giác pháp lý.',
+        rebuttal_or_mitigation_conditions: [
+          'Nạp văn bản quy phạm pháp luật chính thức từ Công báo / CSDL Quốc gia (vbpl.vn) vào kho SSoT trước khi chạy suy luận.',
+        ],
+        residual_risk_level: 'CAO',
+      },
+      step6_conclusion: {
+        definitive_conclusion: `[ABSTAINED_INSUFFICIENT_SSOT — TỪ CHỐI KẾT LUẬN DO THIẾU DỮ LIỆU SSoT]: ${abstentionReason}`,
+        mandatory_evidence_dossier: [],
+        actionable_recommendations: [
+          `Tra cứu trực tiếp văn bản gốc thuộc lĩnh vực ${outOfCorpusDomain || 'liên quan'} trên Cổng Thông tin điện tử Chính phủ / Công báo nước CHXHCN Việt Nam.`,
+          'Bổ sung văn bản xác thực vào kho SSoT trước khi lập báo cáo thẩm định pháp lý.',
+        ],
+        epistemic_status: 'ABSTAINED_INSUFFICIENT_SSOT',
+        abstention_reason: abstentionReason,
+      },
+      citation_verification_report: {
+        total_citations_detected: 0,
+        verified_ssot_count: 0,
+        excerpt_warning_count: 0,
+        unverified_external_count: 0,
+        trust_score_percent: 0,
+        citations: [],
+        has_hallucination_risk: false,
+      },
+    };
+  }
 
   const citationBatch = verifyCitationsBatch(
     resolvedList.map((r) => ({
@@ -56,12 +167,17 @@ export function buildDeterministicIRACBaseline(params: {
     corpus
   );
 
-  const modeLabel =
+  const hasExcerptInRules = resolvedList.some((r) => !r.completeness_meta.is_full_text);
+  const epistemicStatus: 'VERIFIED_IN_SSOT' | 'PARTIAL_EXCERPT_WARNING' = hasExcerptInRules
+    ? 'PARTIAL_EXCERPT_WARNING'
+    : 'VERIFIED_IN_SSOT';
+
+  const modeSpecificQuestion =
     mode === 'JUDICIAL_ANALYSIS'
-      ? 'Phân tích Tài phán & Xét xử Khách quan (Judicial Analysis)'
+      ? `[Phân tích Tài phán — Judicial Adjudication]: Đánh giá hiệu lực quy phạm tại ngày ${referenceDate}, đối chiếu chứng cứ khách quan và xác định nghĩa vụ pháp lý đối với hồ sơ "${caseTitle}".`
       : mode === 'LEGAL_COUNSEL'
-      ? 'Tư vấn Pháp lý & Bảo vệ Quyền lợi Chủ đầu tư / Doanh nghiệp (Legal Counsel)'
-      : 'Kiểm toán Tuân thủ & Hậu kiểm Rủi ro Xuất toán (Legal Audit)';
+      ? `[Tư vấn Pháp chế Chủ đầu tư — Legal Counsel]: Xác định phương án bảo vệ quyền lợi hợp pháp, điều khoản chuyển tiếp có lợi và giải pháp khắc phục hồ sơ cho "${caseTitle}" tại mốc ${referenceDate}.`
+      : `[Kiểm toán Tuân thủ & Xuất toán — Compliance Auditor]: Hậu kiểm 3 chân kiềng (Quy phạm tại ${referenceDate} ↔ Hồ sơ chứng cứ SHA-256 ↔ Rủi ro xuất toán/chế tài) đối với "${caseTitle}".`;
 
   const step2Rules = resolvedList.map((r, idx) => ({
     doc_number: r.doc_number,
@@ -103,8 +219,9 @@ export function buildDeterministicIRACBaseline(params: {
     mode,
     reference_date: referenceDate,
     case_title: caseTitle,
+    epistemic_status: epistemicStatus,
     step1_issue: {
-      core_legal_question: `[Chế độ: ${modeLabel}] Xác định hiệu lực quy phạm áp dụng tại thời điểm sự kiện (${referenceDate}) và đánh giá tính hợp pháp, rủi ro xuất toán của hồ sơ: "${caseTitle}".`,
+      core_legal_question: modeSpecificQuestion,
       material_facts: facts.map(
         (f) => `${f.event_date} — ${f.event_title} (${f.evidence_code || 'Chưa gắn mã chứng cứ'})`
       ),
@@ -153,7 +270,90 @@ export function buildDeterministicIRACBaseline(params: {
         'Đối chiếu từng điều khoản trích lược với cổng CSDL Quốc gia (vbpl.vn) trước khi ký phát hành văn bản chính thức.',
         'Hoàn thiện các mục đang ở trạng thái "VI PHẠM / RỦI RO XUẤT TOÁN" hoặc "CẦN BỔ SUNG CHỨNG CỨ" trong Bước 4.',
       ],
+      epistemic_status: epistemicStatus,
     },
     citation_verification_report: citationBatch,
   };
 }
+
+/**
+ * Chuyển đổi kết quả suy luận IRAC+ sang cấu trúc chuẩn `LegalReasoningTrace` (LEGAL_DOMAIN_DATA_MODEL.md §5.1).
+ */
+export function buildLegalReasoningTrace(
+  iracOutput: IRACPlusReasoningOutput,
+  corpus: LegalDocument[]
+): LegalReasoningTrace {
+  const mappedEpistemic: EpistemicConclusionStatus =
+    iracOutput.epistemic_status === 'ABSTAINED_INSUFFICIENT_SSOT'
+      ? 'ABSTAINED_MISSING_DATA'
+      : iracOutput.epistemic_status === 'PARTIAL_EXCERPT_WARNING'
+      ? 'CONDITIONAL_ON_EXCERPT'
+      : 'VERIFIED_DETERMINISTIC';
+
+  return {
+    trace_id: iracOutput.reasoning_id,
+    created_at: iracOutput.created_at,
+    reasoning_mode: iracOutput.mode,
+    as_of_date: iracOutput.reference_date,
+    epistemic_status: mappedEpistemic,
+    step_1_legal_issues: [
+      iracOutput.step1_issue.core_legal_question,
+      ...iracOutput.step1_issue.material_facts,
+    ],
+    step_2_applicable_provisions: iracOutput.step2_rules.map((r) => {
+      const verification = verifyCitationAgainstCorpus(
+        `${r.article_clause_ref} (${r.doc_number})`,
+        r.doc_number,
+        r.article_clause_ref,
+        corpus
+      );
+      const pitStatus = r.effective_status_at_fact_date.includes('TRANSITIONAL')
+        ? 'TRANSITIONAL_APPLIED'
+        : r.effective_status_at_fact_date.includes('AMENDED')
+        ? 'AMENDED_AT_DATE'
+        : r.effective_status_at_fact_date.includes('EXPIRED')
+        ? 'EXPIRED_AT_DATE'
+        : 'ACTIVE_AT_DATE';
+
+      return {
+        doc_number: r.doc_number,
+        clause_ref: r.article_clause_ref,
+        verbatim_quote: r.normative_summary,
+        point_in_time_status: pitStatus,
+        verification,
+      };
+    }),
+    step_3_statutory_interpretation: [
+      ...iracOutput.step3_interpretation.normative_elements,
+      iracOutput.step3_interpretation.temporal_and_transitional_analysis,
+    ].join('\n'),
+    step_4_fact_application: iracOutput.step4_application.fact_to_rule_mapping.map((m) => ({
+      fact_summary: m.fact_statement,
+      compliance_match:
+        m.compliance_assessment === 'PHÙ HỢP'
+          ? 'COMPLIANT'
+          : m.compliance_assessment === 'VI PHẠM / RỦI RO XUẤT TOÁN'
+          ? 'NON_COMPLIANT'
+          : 'INSUFFICIENT_EVIDENCE',
+      analysis: m.analysis,
+    })),
+    step_5_counter_arguments_and_exceptions: [
+      iracOutput.step5_counterargument.inspector_or_opposing_view,
+      ...iracOutput.step5_counterargument.rebuttal_or_mitigation_conditions,
+    ],
+    step_6_actionable_conclusion: {
+      verdict_summary: iracOutput.step6_conclusion.definitive_conclusion,
+      deduction_or_invalidity_risk:
+        iracOutput.step5_counterargument.residual_risk_level === 'RẤT CAO'
+          ? 'CRITICAL'
+          : iracOutput.step5_counterargument.residual_risk_level === 'CAO'
+          ? 'HIGH'
+          : iracOutput.step5_counterargument.residual_risk_level === 'TRUNG BÌNH'
+          ? 'MEDIUM'
+          : 'LOW',
+      mandatory_remediation_steps: iracOutput.step6_conclusion.actionable_recommendations,
+      abstention_reason: iracOutput.step6_conclusion.abstention_reason,
+    },
+  };
+}
+

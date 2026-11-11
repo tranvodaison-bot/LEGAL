@@ -1,4 +1,8 @@
-import type { LegalDocument } from '../../types/legal';
+import type {
+  CitationVerificationResult,
+  CitationVerificationStatus,
+  LegalDocument,
+} from '../../types/legal';
 import type {
   CitationVerificationReport,
   VerifiedCitationItem,
@@ -73,7 +77,27 @@ export function verifySingleCitation(
     (a) => a.article_no.trim().toLowerCase() === extractedArticleNo.toLowerCase()
   );
 
+  const extractedArticleNum = articleMatch ? parseInt(articleMatch[1], 10) : undefined;
+
   if (!matchedArticle) {
+    if (
+      extractedArticleNum !== undefined &&
+      !Number.isNaN(extractedArticleNum) &&
+      completeness.total_articles_count > 0 &&
+      extractedArticleNum > completeness.total_articles_count
+    ) {
+      return {
+        raw_citation: `${cleanArticleRef} (${matchedDoc.doc_number})`,
+        matched_doc_id: matchedDoc.id,
+        matched_doc_number: matchedDoc.doc_number,
+        matched_article_no: extractedArticleNo,
+        matched_clause_no: extractedClauseNo,
+        verification_status: 'UNVERIFIED_EXTERNAL',
+        authenticity_tier: tier,
+        warning_note: `CẢNH BÁO ẢO GIÁC PHÁP LÝ (BLOCKED_HALLUCINATION): Văn bản ${matchedDoc.doc_number} chỉ có ${completeness.total_articles_count} Điều theo Công báo, không tồn tại ${extractedArticleNo}.`,
+      };
+    }
+
     return {
       raw_citation: `${cleanArticleRef} (${matchedDoc.doc_number})`,
       matched_doc_id: matchedDoc.id,
@@ -201,3 +225,73 @@ export function verifyCitationsBatch(
     has_hallucination_risk: unverifiedExternalCount > 0,
   };
 }
+
+/**
+ * Chuyển đổi kết quả VerifiedCitationItem sang cấu trúc CitationVerificationResult (LEGAL_DOMAIN_DATA_MODEL.md §4.2)
+ * và hỗ trợ các nhãn tương thích ngược trong ACCEPTANCE_TEST_PLAN.md (TC-P1-03).
+ */
+export function verifyCitationAgainstCorpus(
+  rawCitationText: string,
+  targetDocNumber: string,
+  targetArticleNo: string,
+  corpus: LegalDocument[]
+): CitationVerificationResult & {
+  verification_status:
+    | 'VERIFIED_IN_SSOT'
+    | 'DOC_FOUND_ARTICLE_NOT_LOADED'
+    | 'UNVERIFIED_CITATION'
+    | 'UNVERIFIED_EXTERNAL_CITATION';
+  warning_banner?: string;
+} {
+  const item = verifySingleCitation(
+    targetDocNumber,
+    targetArticleNo || rawCitationText,
+    corpus
+  );
+
+  const isHallucinatedNumber = Boolean(
+    item.warning_note &&
+      (item.warning_note.includes('BLOCKED_HALLUCINATION') ||
+        item.warning_note.includes('CẢNH BÁO TRÍCH DẪN ẢO'))
+  );
+
+  let status: CitationVerificationStatus;
+  let compatStatus:
+    | 'VERIFIED_IN_SSOT'
+    | 'DOC_FOUND_ARTICLE_NOT_LOADED'
+    | 'UNVERIFIED_CITATION'
+    | 'UNVERIFIED_EXTERNAL_CITATION';
+
+  if (item.verification_status === 'VERIFIED_FULL_SSOT') {
+    status = 'VERIFIED_FULL_SSOT';
+    compatStatus = 'VERIFIED_IN_SSOT';
+  } else if (item.verification_status === 'VERIFIED_EXCERPT_SSOT') {
+    status = 'VERIFIED_EXCERPT_SSOT';
+    compatStatus = 'VERIFIED_IN_SSOT';
+  } else if (item.verification_status === 'DOC_FOUND_ARTICLE_UNLOADED') {
+    status = 'DOC_FOUND_ARTICLE_UNLOADED';
+    compatStatus = 'DOC_FOUND_ARTICLE_NOT_LOADED';
+  } else if (isHallucinatedNumber || item.matched_doc_id) {
+    status = 'BLOCKED_HALLUCINATION';
+    compatStatus = 'UNVERIFIED_CITATION';
+  } else {
+    status = 'UNVERIFIED_EXTERNAL';
+    compatStatus = 'UNVERIFIED_EXTERNAL_CITATION';
+  }
+
+  return {
+    raw_citation_text: rawCitationText || item.raw_citation,
+    status,
+    verification_status: compatStatus,
+    matched_doc_id: item.matched_doc_id,
+    matched_doc_number: item.matched_doc_number,
+    matched_article_no: item.matched_article_no,
+    verification_note:
+      item.warning_note ||
+      `Đã xác thực 100% khớp với ${item.matched_article_no || 'văn bản'} (${
+        item.matched_doc_number
+      }) trong kho SSoT.`,
+    warning_banner: item.warning_note,
+  };
+}
+

@@ -22,11 +22,14 @@ import {
   McpRiskCategory,
   McpRiskChecklistItem,
   McpSessionAuditRecord,
+  LegalDocument,
 } from '../types/legal';
 import { GlobalAuditDashboard } from './GlobalAuditDashboard';
+import { EvidenceBasedReportModal } from './EvidenceBasedReportModal';
 
 interface GlobalAuditSummaryPanelProps {
   auditRecords: McpSessionAuditRecord[];
+  documents?: LegalDocument[];
   currentDocNumber?: string;
   currentArticleNo?: string;
   isMcpLoading: boolean;
@@ -232,6 +235,7 @@ export const INITIAL_SESSION_MCP_AUDITS: McpSessionAuditRecord[] = [
 
 export const GlobalAuditSummaryPanel: React.FC<GlobalAuditSummaryPanelProps> = React.memo(({
   auditRecords,
+  documents = [],
   currentDocNumber,
   currentArticleNo,
   isMcpLoading,
@@ -257,6 +261,7 @@ export const GlobalAuditSummaryPanel: React.FC<GlobalAuditSummaryPanelProps> = R
   >({});
   const [copiedNotice, setCopiedNotice] = useState(false);
   const [showVisualDashboard, setShowVisualDashboard] = useState(true);
+  const [showEvidenceReportModal, setShowEvidenceReportModal] = useState(false);
 
   // Flatten all checklist items across all session MCP audits with parent record metadata
   const allFlattenedItems = useMemo(() => {
@@ -446,6 +451,16 @@ export const GlobalAuditSummaryPanel: React.FC<GlobalAuditSummaryPanelProps> = R
           >
             <BarChart3 className="w-3.5 h-3.5" />
             <span>{showVisualDashboard ? 'Ẩn Dashboard Biểu đồ' : 'Mở Dashboard Biểu đồ'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowEvidenceReportModal(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-[#152D42] text-[#E9C96D] border border-[#C6A342] text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-[#1E3F5A]"
+            title="Kết xuất Báo cáo Pháp lý có dẫn chứng xác thực (A4 / JSON kèm SHA-256)"
+          >
+            <FileCheck2 className="w-3.5 h-3.5" />
+            <span>Xuất Báo Cáo Có Dẫn Chứng</span>
           </button>
 
           <button
@@ -859,6 +874,13 @@ export const GlobalAuditSummaryPanel: React.FC<GlobalAuditSummaryPanelProps> = R
           </button>
         )}
       </div>
+
+      <EvidenceBasedReportModal
+        isOpen={showEvidenceReportModal}
+        onClose={() => setShowEvidenceReportModal(false)}
+        documents={documents}
+        auditRecords={auditRecords}
+      />
     </section>
   );
 });

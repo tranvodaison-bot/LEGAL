@@ -154,7 +154,16 @@ export interface IRACPlusReasoningOutput {
     definitive_conclusion: string;
     mandatory_evidence_dossier: string[];
     actionable_recommendations: string[];
+    epistemic_status?:
+      | 'VERIFIED_IN_SSOT'
+      | 'PARTIAL_EXCERPT_WARNING'
+      | 'ABSTAINED_INSUFFICIENT_SSOT';
+    abstention_reason?: string;
   };
+  epistemic_status?:
+    | 'VERIFIED_IN_SSOT'
+    | 'PARTIAL_EXCERPT_WARNING'
+    | 'ABSTAINED_INSUFFICIENT_SSOT';
   // Hậu kiểm tất định từ CitationVerifier
   citation_verification_report: CitationVerificationReport;
 }

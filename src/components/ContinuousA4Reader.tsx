@@ -18,6 +18,7 @@ interface ContinuousA4ReaderProps {
   document: LegalDocument;
   activeArticleId: string | null;
   fontSizePx?: number;
+  asOfDate?: string;
   articleByNoMap: Map<string, LegalArticle>;
   onSelectArticle: (articleId: string, shouldScroll?: boolean) => void;
   onOpenCrossLawDrawer: (article: LegalArticle) => void;
@@ -29,6 +30,7 @@ export const ContinuousA4Reader: React.FC<ContinuousA4ReaderProps> = ({
   document: doc,
   activeArticleId,
   fontSizePx = 16,
+  asOfDate,
   articleByNoMap,
   onSelectArticle,
   onOpenCrossLawDrawer,
@@ -408,11 +410,20 @@ export const ContinuousA4Reader: React.FC<ContinuousA4ReaderProps> = ({
         >
           {/* Thanh trạng thái viền trên tờ giấy A4 */}
           <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-dashed border-stone-300 dark:border-stone-800 font-sans text-[11px] text-stone-500 dark:text-stone-400">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <FileText className="w-3.5 h-3.5 text-[#C6A342]" />
               <span className="font-bold text-[#152D42] dark:text-amber-300">
-                BẢN TRÌNH BÀY TOÀN VĂN CHUẨN A4 (NĐ 30/2020/NĐ-CP)
+                BẢN TRÌNH BÀY CHUẨN A4 (NĐ 30/2020/NĐ-CP)
               </span>
+              {doc.completeness_meta?.is_full_text ? (
+                <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-400 text-emerald-900 dark:text-emerald-200 font-bold text-[10px]">
+                  ✓ TOÀN VĂN ĐẦY ĐỦ 100% ({doc.articles.length}/{doc.completeness_meta.total_articles_count} Điều)
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 border border-amber-400 text-amber-900 dark:text-amber-200 font-bold text-[10px]">
+                  📑 BẢN TRÍCH LƯỢC {doc.articles.length}/{doc.completeness_meta?.total_articles_count || doc.total_articles_count || doc.articles.length} ĐIỀU TRỌNG TÂM — Phục vụ đối soát chuyên ngành
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span className="px-2 py-0.5 rounded bg-[#FBF5DF] dark:bg-amber-950/60 border border-[#C6A342]/60 text-[#152D42] dark:text-amber-200 font-semibold">
@@ -590,6 +601,7 @@ export const ContinuousA4Reader: React.FC<ContinuousA4ReaderProps> = ({
                         articleByNoMap={articleByNoMap}
                         onSelectArticle={onSelectArticle}
                         onOpenAmendingDoc={onOpenAmendingDoc}
+                        asOfDate={asOfDate}
                       />
                     </div>
 
@@ -654,9 +666,17 @@ export const ContinuousA4Reader: React.FC<ContinuousA4ReaderProps> = ({
                 </div>
               </div>
 
-              <div className="px-4 py-2 rounded border-2 border-red-600/75 bg-red-50/50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-sans font-bold text-[11px] uppercase tracking-wider shadow-2xs">
-                [Đã ký & Xác thực Sao y Bản chính SSoT]
-              </div>
+              {doc.authenticity_tier === 'OFFICIAL_VBHN' ||
+              doc.authenticity_tier === 'VERIFIED_SSOT' ||
+              doc.authenticity_tier === 'VERIFIED_FULL_SSOT' ? (
+                <div className="px-4 py-2 rounded border-2 border-red-600/75 bg-red-50/50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-sans font-bold text-[11px] uppercase tracking-wider shadow-2xs">
+                  [Đã ký & Xác thực Toàn văn SSoT]
+                </div>
+              ) : (
+                <div className="px-4 py-2 rounded border-2 border-amber-500/80 bg-amber-50/60 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 font-sans font-bold text-[11px] uppercase tracking-wider shadow-2xs">
+                  [Bản Trích lược / Tổng hợp Tra cứu SSoT — Đối chiếu Công báo khi trích dẫn]
+                </div>
+              )}
 
               <div className="font-bold text-sm text-stone-900 dark:text-stone-100 pt-1">
                 {doc.signer}

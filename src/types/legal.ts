@@ -103,6 +103,37 @@ export interface ClauseDiff {
   change_summary?: string;        // Tóm tắt nội dung & lý do sửa đổi tại chỗ
 }
 
+export interface LegalPointItem {
+  id: string;                     // VD: "art-lkt88-d3-k1-pa"
+  point_letter: string;           // VD: "Điểm a", "Điểm b", "Điểm đ"
+  text: string;                   // Nội dung hiện hành của Điểm
+  is_amended?: boolean;
+  is_annulled?: boolean;
+  temporal_versions?: ProvisionTemporalVersion[];
+}
+
+export interface ProvisionTemporalVersion {
+  version_id: string;             // VD: "ver-lkt88-d3-k1-2015", "ver-lkt88-d3-k1-2025"
+  text: string;                   // Nguyên văn lời văn tại giai đoạn lịch sử này
+  effective_from: string;         // Ngày bắt đầu có hiệu lực (YYYY-MM-DD)
+  effective_to: string | null;    // Ngày hết hiệu lực (YYYY-MM-DD) hoặc null nếu đang hiện hành
+  enacting_doc_id: string;        // ID văn bản ban hành/sửa đổi tạo ra phiên bản này
+  enacting_doc_number: string;    // Số hiệu văn bản (VD: "88/2015/QH13" hoặc "56/2024/QH15")
+  change_type: 'ORIGINAL' | 'AMENDED' | 'SUPPLEMENTED' | 'ANNULLED';
+  change_summary?: string;
+}
+
+export interface TransitionalProvisionRule {
+  id: string;
+  rule_article_ref: string;       // VD: "Điều 95 Luật Xây dựng 135/2025/QH15"
+  cut_off_event: string;          // Sự kiện mốc (VD: "Ngày phê duyệt dự án đầu tư", "Ngày phát hành HSMT")
+  cut_off_date: string;           // Ngày mốc chuyển tiếp (YYYY-MM-DD, VD: "2026-01-01")
+  before_cut_off_law_doc_id: string; // Văn bản áp dụng nếu sự kiện xảy ra TRƯỚC ngày mốc
+  before_cut_off_rule_summary: string;
+  on_or_after_cut_off_law_doc_id: string; // Văn bản áp dụng nếu sự kiện xảy ra TỪ ngày mốc trở đi
+  on_or_after_cut_off_rule_summary: string;
+}
+
 export interface ClauseItem {
   id: string;                     // ID định danh Khoản (VD: 'art-lkt88-d3-k1')
   clause_no: string;              // Nhãn Khoản (VD: 'Khoản 1', 'Khoản 2')
@@ -111,6 +142,28 @@ export interface ClauseItem {
   is_annulled?: boolean;          // Cờ đánh dấu Khoản đã bị bãi bỏ
   diff_data?: ClauseDiff;         // Dữ liệu đối chiếu bản gốc và bản sửa đổi tại chỗ (In-place Diff)
   points?: string[];              // Danh sách các Điểm a), b), c) thuộc Khoản (tùy chọn)
+  structured_points?: LegalPointItem[]; // Cấu trúc Điểm chuẩn hóa theo LEGAL_DOMAIN_DATA_MODEL.md
+  temporal_versions?: ProvisionTemporalVersion[]; // Lịch sử hiệu lực theo thời điểm (Point-in-Time)
+}
+
+export type LegalClause = ClauseItem;
+
+export type CitationVerificationStatus =
+  | 'VERIFIED_FULL_SSOT'          // Khớp 100% với Điều/Khoản có thật trong văn bản Toàn văn SSoT
+  | 'VERIFIED_EXCERPT_SSOT'       // Khớp 100% với Điều/Khoản đã nạp trong văn bản Trích lược SSoT
+  | 'DOC_FOUND_ARTICLE_UNLOADED'  // Văn bản có trong SSoT nhưng Điều được trích dẫn chưa nạp toàn văn
+  | 'UNVERIFIED_EXTERNAL'         // Văn bản nằm ngoài SSoT hiện tại (cần tra cứu Công báo độc lập)
+  | 'BLOCKED_HALLUCINATION';      // BỊ CHẶN: Trích dẫn mâu thuẫn với SSoT (VD: Điều số 500 trên Luật chỉ có 95 Điều)
+
+export interface CitationVerificationResult {
+  raw_citation_text: string;      // VD: "Khoản 3 Điều 14 Luật Xây dựng số 135/2025/QH15"
+  status: CitationVerificationStatus;
+  matched_doc_id?: string;
+  matched_doc_number?: string;
+  matched_article_id?: string;
+  matched_article_no?: string;
+  matched_clause_id?: string;
+  verification_note: string;      // Thuyết minh hiển thị trên badge kiểm chứng
 }
 
 export interface CrossLawMatrixItem {
@@ -121,6 +174,7 @@ export interface CrossLawMatrixItem {
   relation_nature: 'ĐỒNG BỘ BẮT BUỘC' | 'ĐIỀU KIỆN TIÊN QUYẾT' | 'GIAO THOA THẨM QUYỀN' | 'RỦI RO XUNG ĐỘT HỒ SƠ';
   cross_analysis: string;         // Phân tích ma trận đối soát chéo giữa Điều đang xem và quy định liên ngành
   audit_evidence_required: string;// Chứng từ / Hồ sơ pháp lý bắt buộc phải khớp nối
+  citation_verification?: CitationVerificationResult; // Kết quả hậu kiểm tất định từ CitationVerifier
 }
 
 export interface CrossLawAuditResponse {
@@ -133,11 +187,43 @@ export interface CrossLawAuditResponse {
 
 export type AuthenticityTier =
   | 'VERIFIED_SSOT'       // Văn bản QPPL chính thức đã đối chiếu Công báo và nạp đầy đủ toàn văn
+  | 'VERIFIED_FULL_SSOT'  // Alias chuẩn theo LEGAL_DOMAIN_DATA_MODEL.md
   | 'VERIFIED_EXCERPT'    // Văn bản QPPL có thật trên Công báo, hiện nạp trích lược các điều khoản trọng tâm
   | 'OFFICIAL_VBHN'       // Văn bản hợp nhất chính thức do VPQH hoặc Bộ/Ngành ký xác thực hợp nhất
   | 'INTERNAL_SYNTHESIS'  // Bản tổng hợp nội bộ phục vụ tra cứu nhanh (không phải VBHN chính thức)
+  | 'INTERNAL_WORKING_SYNTHESIS' // Alias chuẩn theo LEGAL_DOMAIN_DATA_MODEL.md
   | 'QUARANTINE_REVIEW'   // Văn bản nạp qua OCR hoặc người dùng tải lên đang chờ kiểm duyệt SSoT
+  | 'UNVERIFIED_OCR_QUARANTINE' // Alias chuẩn theo LEGAL_DOMAIN_DATA_MODEL.md
   | 'REFERENCE_GUIDE';    // Tài liệu hướng dẫn sử dụng nội bộ
+
+export type LegalAuthenticityTier =
+  | 'VERIFIED_FULL_SSOT'
+  | 'VERIFIED_EXCERPT'
+  | 'OFFICIAL_VBHN'
+  | 'INTERNAL_WORKING_SYNTHESIS'
+  | 'UNVERIFIED_OCR_QUARANTINE';
+
+export type DocumentConsolidationNature =
+  | 'PRIMARY_PROMULGATED' // Văn bản gốc ban hành lần đầu hoặc văn bản sửa đổi, bổ sung độc lập
+  | 'OFFICIAL_VBHN'       // Văn bản hợp nhất chính thức của cơ quan nhà nước có thẩm quyền
+  | 'INTERNAL_SYNTHESIS'; // Bản tổng hợp nội bộ của hệ thống (CẤM đóng dấu sao y bản chính)
+
+export interface OfficialSourceProvenance {
+  official_gazette_no?: string;    // Số Công báo (VD: "Công báo số 815 + 816 năm 2024")
+  official_portal_url?: string;    // URL tới vbpl.vn, congbao.chinhphu.vn hoặc chinhphu.vn
+  verified_at: string;             // Ngày kiểm chứng đối chiếu văn bản gốc (YYYY-MM-DD)
+  verified_by: string;             // Chủ thể kiểm chứng (VD: "Hội đồng Pháp chế & Kiểm toán ĐẠI SƠN")
+  sha256_checksum: string;         // Mã băm SHA-256 thực tế (Web Crypto / Node Crypto) của nội dung chuẩn
+}
+
+export interface DocumentCompletenessMeta {
+  total_articles_in_official_doc: number;  // Tổng số Điều của văn bản gốc ngoài đời thực (VD: 260 Điều với Luật Đất đai)
+  loaded_articles_count: number;           // Số Điều hiện đã nạp nguyên văn vào SSoT (VD: 3 Điều)
+  total_clauses_in_loaded_articles?: number; // Tổng số Khoản của các Điều đã nạp
+  loaded_clauses_count?: number;           // Số Khoản đã tách cấu trúc chi tiết
+  is_full_text: boolean;                   // Chỉ = true khi loaded_articles_count === total_articles_in_official_doc
+  completeness_ratio_label: string;        // VD: "Bản trích lược: 3/260 Điều trọng tâm (1.2%)" hoặc "Toàn văn: 12/12 Điều (100%)"
+}
 
 export interface CompletenessMetadata {
   loaded_articles_count: number;
@@ -152,7 +238,10 @@ export interface LegalArticle {
   document_id: string;     // FK -> documents.id
   chapter_no: string;      // e.g., "Chương III"
   chapter_title: string;   // e.g., "Quản lý dự án đầu tư xây dựng"
+  section_no?: string;     // e.g., "Mục 1" (Bổ sung cấp Mục)
+  section_title?: string;  // e.g., "Quy định chung về quản lý dự án"
   article_no: string;      // e.g., "Điều 14"
+  article_order?: number;  // Số thứ tự Điều dùng để sắp xếp chính xác (VD: 14)
   article_title: string;   // e.g., "Điều kiện khởi công xây dựng công trình"
   content: string;         // Toàn văn nội dung điều khoản
   is_active: boolean;      // Trạng thái hiệu lực của riêng điều khoản
@@ -162,8 +251,10 @@ export interface LegalArticle {
   is_annulled?: boolean;   // Cờ cảnh báo Điều khoản đã bị bãi bỏ
   amendment_info?: ArticleAmendmentInfo; // Chi tiết phả hệ sửa đổi của Điều khoản
   clause_count?: number;   // Số lượng Khoản trong Điều (VD: 19 khoản)
+  total_clauses_in_official_article?: number; // Tổng số khoản thực tế của Điều này trong bản Công báo
   point_count?: number;    // Số lượng Điểm trong Điều
   clauses?: ClauseItem[];  // Danh sách từng Khoản chi tiết phục vụ In-place Diff Viewer
+  temporal_versions?: ProvisionTemporalVersion[]; // Lịch sử hiệu lực cấp Điều
   is_ai_draft?: boolean;   // Cờ đánh dấu bản nháp AI (CẤM đưa vào VERIFIED_SSOT)
 }
 
@@ -198,7 +289,18 @@ export interface LegalDocument {
   total_clauses_count?: number;    // Tổng số Khoản/Điểm toàn văn bản (VD: 509)
   total_articles_count?: number;   // Tổng số Điều của văn bản gốc theo Công báo (VD: 73)
   authenticity_tier?: AuthenticityTier; // Phân tầng xác thực SSoT
+  consolidation_nature?: DocumentConsolidationNature; // Phân loại bản chất hợp nhất
+  official_provenance?: OfficialSourceProvenance; // Nguồn gốc xuất xứ & mã băm SHA-256 thực tế
+  completeness?: DocumentCompletenessMeta; // Thông tin độ phủ theo LEGAL_DOMAIN_DATA_MODEL.md
   completeness_meta?: CompletenessMetadata; // Thông tin tỷ lệ nạp điều khoản (X/Y Điều)
+  transitional_rules?: TransitionalProvisionRule[]; // Quy tắc chuyển tiếp giải quyết thời điểm áp dụng
+  quarantine_info?: {
+    uploaded_at: string;
+    uploaded_by: string;
+    ocr_engine_used: string;
+    review_status: 'PENDING_HUMAN_REVIEW' | 'REJECTED' | 'APPROVED_TO_SSOT';
+    missing_fields: string[];
+  };
   sha256_hash?: string;            // Mã băm SHA-256 của tệp gốc hoặc nội dung xác thực
   official_gazette_ref?: string;   // Tham chiếu Công báo / Nguồn chính thức
   is_sample_ref?: boolean;         // Từ danh mục tham chiếu VBPL
@@ -346,4 +448,101 @@ export interface McpSessionAuditRecord {
   rawAnalysis: string;
   checklistItems: McpRiskChecklistItem[];
 }
+
+export type KnowledgeGraphEdgeType =
+  | 'AMENDS'                  // Sửa đổi, bổ sung một phần
+  | 'ANNULS_PARTIALLY'        // Bãi bỏ một số điều/khoản
+  | 'REPLACES_WHOLLY'         // Thay thế toàn bộ văn bản cũ
+  | 'GUIDES_IMPLEMENTATION'   // Nghị định/Thông tư quy định chi tiết và hướng dẫn thi hành Luật
+  | 'CROSS_REFERENCES'        // Dẫn chiếu áp dụng trực tiếp
+  | 'PREREQUISITE_GATE'       // Điều kiện tiên quyết giữa 2 thủ tục pháp lý (Stage-Gate)
+  | 'CONFLICT_WATCH';         // Giao thoa thẩm quyền hoặc điểm nghẽn dễ xung đột hồ sơ
+
+export interface LegalKnowledgeEdge {
+  id: string;
+  edge_type: KnowledgeGraphEdgeType;
+  source_doc_id: string;
+  source_article_id: string;
+  source_clause_id?: string;
+  target_doc_id: string;
+  target_article_id: string;
+  target_clause_id?: string;
+  effective_from: string;     // Ngày mối quan hệ này bắt đầu phát sinh hiệu lực (YYYY-MM-DD)
+  effective_to: string | null;// Ngày mối quan hệ này chấm dứt (YYYY-MM-DD) hoặc null
+  title: string;
+  description: string;
+  comparison_highlight: {
+    source_excerpt: string;
+    target_excerpt: string;
+    legal_impact: string;
+  };
+  is_verified_in_ssot: boolean;
+}
+
+export type LegalReasoningMode =
+  | 'JUDICIAL_ADJUDICATION' // Góc nhìn Thẩm phán / Trọng tài viên
+  | 'LEGAL_COUNSEL'         // Góc nhìn Luật sư Tư vấn / Pháp chế Chủ đầu tư
+  | 'COMPLIANCE_AUDITOR'    // Góc nhìn Kiểm toán Nhà nước / Thanh tra Xây dựng - Tài chính
+  | 'JUDICIAL_ANALYSIS'     // Alias tương thích ngược
+  | 'LEGAL_AUDIT';          // Alias tương thích ngược
+
+export type EpistemicConclusionStatus =
+  | 'VERIFIED_DETERMINISTIC'  // Kết luận dựa 100% trên điều khoản nguyên văn có trong SSoT
+  | 'CONDITIONAL_ON_EXCERPT'  // Kết luận dựa trên văn bản trích lược (cần kiểm tra thêm các điều chưa nạp)
+  | 'ABSTAINED_MISSING_DATA'; // TỪ CHỐI KẾT LUẬN: Không đủ dữ liệu xác thực trong SSoT hoặc lỗi kết nối AI
+
+export interface LegalReasoningTrace {
+  trace_id: string;
+  created_at: string;
+  reasoning_mode: LegalReasoningMode;
+  as_of_date: string;             // Thời điểm pháp lý được dùng để xét hiệu lực (YYYY-MM-DD)
+  epistemic_status: EpistemicConclusionStatus;
+  step_1_legal_issues: string[];  // 1. Vấn đề pháp lý cốt lõi (Legal Issues)
+  step_2_applicable_provisions: { // 2. Quy phạm pháp luật áp dụng (đã qua Point-in-Time & CitationVerifier)
+    doc_number: string;
+    clause_ref: string;
+    verbatim_quote: string;
+    point_in_time_status: 'ACTIVE_AT_DATE' | 'AMENDED_AT_DATE' | 'TRANSITIONAL_APPLIED' | 'EXPIRED_AT_DATE';
+    verification: CitationVerificationResult;
+  }[];
+  step_3_statutory_interpretation: string; // 3. Giải thích điều kiện áp dụng quy phạm
+  step_4_fact_application: {      // 4. Áp dụng vào tình tiết hồ sơ vụ việc thực tế
+    fact_summary: string;
+    evidence_file_name?: string;
+    evidence_sha256?: string;
+    compliance_match: 'COMPLIANT' | 'NON_COMPLIANT' | 'INSUFFICIENT_EVIDENCE';
+    analysis: string;
+  }[];
+  step_5_counter_arguments_and_exceptions: string[]; // 5. Ngoại lệ, tình tiết giảm nhẹ hoặc điều khoản chuyển tiếp
+  step_6_actionable_conclusion: { // 6. Kết luận & Khuyến nghị hành động
+    verdict_summary: string;
+    deduction_or_invalidity_risk: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+    mandatory_remediation_steps: string[];
+    abstention_reason?: string;   // Bắt buộc có nếu epistemic_status === 'ABSTAINED_MISSING_DATA'
+  };
+}
+
+export interface CaseFactMilestone {
+  id: string;
+  event_date: string;             // Ngày diễn ra sự kiện trên thực tế (YYYY-MM-DD)
+  event_type: 'PROJECT_APPROVAL' | 'BIDDING_INVITATION' | 'CONTRACT_SIGNING' | 'CONSTRUCTION_START' | 'VARIATION_ORDER' | 'PAYMENT_SETTLEMENT';
+  description: string;
+  evidence_document_ref?: string; // Số hiệu văn bản/tờ trình thực tế của dự án
+  evidence_sha256?: string;       // Mã băm SHA-256 thực của tệp hồ sơ đính kèm
+}
+
+export interface EvidenceBasedReportSnapshot {
+  report_id: string;
+  project_id: string;
+  project_name: string;
+  generated_at: string;
+  generated_by: string;
+  as_of_legal_date: string;
+  case_facts: CaseFactMilestone[];
+  verified_citations: CitationVerificationResult[];
+  reasoning_traces: LegalReasoningTrace[];
+  unverified_or_missing_warnings: string[]; // Mục công khai giới hạn dữ liệu (Epistemic Humility Section)
+  report_integrity_sha256: string;          // Mã băm SHA-256 của toàn bộ nội dung báo cáo xuất ra
+}
+
 

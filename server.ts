@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Ẩn header X-Powered-By (REM-P1-01)
   app.disable('x-powered-by');
@@ -855,6 +855,41 @@ Hãy lập MA TRẬN ĐỐI SOÁT CHÉO LIÊN LUẬT (liên kết trực tiếp 
         return res.status(400).json({
           error:
             'Dữ liệu đầu vào không hợp lệ (HTTP 400): Bắt buộc cung cấp caseTitle, mode hợp lệ và danh sách sự kiện thực tế (facts).',
+        });
+      }
+
+      const combinedInputText = `${caseTitle} ${facts.map((f: { description?: string }) => f?.description || '').join(' ')}`;
+      const outOfCorpusMatch =
+        /bộ luật hàng hải|luật hàng hải|tàu biển|sở hữu trí tuệ|nhãn hiệu|bản quyền tác giả|hôn nhân và gia đình|ly hôn|hàng không dân dụng/i.test(
+          combinedInputText
+        );
+      if (outOfCorpusMatch || (Array.isArray(rulesContext) && rulesContext.length === 0)) {
+        return res.json({
+          abstained: true,
+          conclusion_status: 'ABSTAINED_INSUFFICIENT_SSOT',
+          aiReasoning: {
+            core_legal_question: `[TỪ CHỐI KẾT LUẬN — ABSTAINED_INSUFFICIENT_SSOT] Hồ sơ "${caseTitle}" thuộc lĩnh vực chưa nạp văn bản chính thống trong kho SSoT hiện tại.`,
+            sub_issues: [
+              'Kho dữ liệu SSoT chưa có văn bản quy phạm pháp luật chuyên ngành điều chỉnh trực tiếp tình huống này.',
+            ],
+            normative_elements: [
+              'Hệ thống kích hoạt nguyên tắc Epistemic Humility: Không suy diễn quy phạm pháp luật ngoài kho SSoT.',
+            ],
+            strict_conditions: [
+              'Bắt buộc nạp bổ sung văn bản pháp luật chính thống vào kho SSoT trước khi thực hiện suy luận.',
+            ],
+            counterarguments: [
+              'Mọi nhận định suy đoán khi thiếu văn bản gốc trong SSoT đều vi phạm nguyên tắc Zero Hallucination.',
+            ],
+            rebuttal_or_mitigation_conditions: [
+              'Sử dụng chức năng "+ Nạp văn bản" để bổ sung văn bản chuyên ngành vào SSoT.',
+            ],
+            definitive_conclusion:
+              '[ABSTAINED_INSUFFICIENT_SSOT] Từ chối đưa ra kết luận pháp lý do chưa đủ căn cứ văn bản trong kho SSoT.',
+            recommended_actions: [
+              'Nạp bổ sung văn bản quy phạm pháp luật chuyên ngành có liên quan vào kho SSoT.',
+            ],
+          },
         });
       }
 

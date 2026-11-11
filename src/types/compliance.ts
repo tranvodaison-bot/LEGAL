@@ -119,6 +119,7 @@ export interface AttachedStepFile {
   filename: string;
   url: string;
   hash: string;
+  sha256_hash?: string;
   uploaded_at: string;
   mime_type?: string;
   extracted_authority?: string; // Authority extracted by LegalCrossCheckAgent OCR
