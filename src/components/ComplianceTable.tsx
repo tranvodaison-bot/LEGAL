@@ -388,7 +388,7 @@ export const ComplianceTable: React.FC<ComplianceTableProps> = React.memo(({
                             onSelectStep(step.step_code);
                           }}
                           className="p-1.5 rounded-lg border border-stone-300 dark:border-stone-700 hover:border-[#C6A342] text-stone-700 dark:text-stone-300 cursor-pointer"
-                          title="Mở Dual-Drawer Inspector để tải hồ sơ & đối chiếu điều khoản LexViet"
+                          title="Mở Dual-Drawer Inspector để tải hồ sơ & đối chiếu điều khoản ĐẠI SƠN LEGAL"
                         >
                           <FileUp className="w-3.5 h-3.5" />
                         </button>

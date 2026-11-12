@@ -196,7 +196,7 @@ export const StageGateNavigator: React.FC<StageGateNavigatorProps> = React.memo(
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-md bg-[#152D42] text-[#E9C96D] text-[10px] font-bold uppercase tracking-wider">
-              AIPM OS × LEXVIET ĐẠI SƠN
+              AIPM OS × ĐẠI SƠN LEGAL
             </span>
             <span className="text-xs font-semibold text-stone-600 dark:text-stone-300">
               {STAGE_GATE_SCALE_STATS.totalPhases} Giai đoạn ·{' '}

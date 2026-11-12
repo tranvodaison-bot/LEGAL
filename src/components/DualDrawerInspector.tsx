@@ -782,14 +782,14 @@ export const DualDrawerInspector: React.FC<DualDrawerInspectorProps> = React.mem
       </div>
 
       {/* =====================================================================
-          PANE PHẢI (6 COLS): ĐỐI CHIẾU ĐIỀU KHOẢN PHÁP LÝ TRỰC TIẾP TỪ CSDL LEXVIET & AUDIT TRAIL
+          PANE PHẢI (6 COLS): ĐỐI CHIẾU ĐIỀU KHOẢN PHÁP LÝ TRỰC TIẾP TỪ CSDL ĐẠI SƠN LEGAL & AUDIT TRAIL
       ===================================================================== */}
       <div className="xl:col-span-6 bg-white dark:bg-[#1A1917] rounded-2xl border border-stone-200 dark:border-[#2E2C28] p-5 shadow-xs space-y-4">
         <div className="border-b border-stone-200 dark:border-[#2E2C28] pb-3.5">
           <div className="flex items-center gap-2">
             <Scale className="w-4 h-4 text-[#C6A342]" />
             <span className="text-xs font-bold uppercase tracking-wider text-[#B59745]">
-              ĐỐI CHIẾU TRỰC TIẾP CSDL PHÁP LUẬT LEXVIET · ĐẠI SƠN SSoT
+              ĐỐI CHIẾU TRỰC TIẾP CSDL PHÁP LUẬT ĐẠI SƠN LEGAL · SSoT
             </span>
           </div>
           <h3 className="text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100 mt-1">
@@ -829,10 +829,10 @@ export const DualDrawerInspector: React.FC<DualDrawerInspectorProps> = React.mem
           </div>
         )}
 
-        {/* Extracted Legal Clauses from LexViet SSoT Corpus */}
+        {/* Extracted Legal Clauses from ĐẠI SƠN LEGAL SSoT Corpus */}
         <div className="space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-[#152D42] dark:text-amber-300">
-            Căn Cứ Điều Khoản Trích Xuất Trực Tiếp Từ Kho Văn Bản LexViet ({step.legal_references.length})
+            Căn Cứ Điều Khoản Trích Xuất Trực Tiếp Từ Kho Văn Bản ĐẠI SƠN LEGAL ({step.legal_references.length})
           </h4>
 
           {step.legal_references.map((ref, idx) => {

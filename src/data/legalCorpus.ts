@@ -35,7 +35,7 @@ export const LEGAL_FIELDS: LegalField[] = [
 
 export const LEGAL_CATEGORIES = LEGAL_FIELDS;
 
-// Hierarchical Category Groups merging LexViet SSoT + LegalFlow + Thư viện VBPL (zero duplication)
+// Hierarchical Category Groups merging ĐẠI SƠN LEGAL SSoT + LegalFlow + Thư viện VBPL (zero duplication)
 export const VBPL_CATEGORY_GROUPS: Array<{
   groupName: string;
   fields: LegalField[];

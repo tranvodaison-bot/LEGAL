@@ -14,9 +14,9 @@ export default defineConfig(() => {
         includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png'],
         manifest: {
           id: '/',
-          name: 'LexViet — Thư Viện Pháp Luật & Bản Đồ Đối Soát Chéo',
-          short_name: 'LexViet',
-          description: 'Hệ thống tra cứu văn bản quy phạm pháp luật Việt Nam tích hợp bản đồ pháp luật tương tác, đối soát chéo và đọc ngoại tuyến.',
+          name: 'ĐẠI SƠN LEGAL — Hệ Sinh Thái Pháp Lý & Kiểm Toán Tuân Thủ SSoT',
+          short_name: 'ĐẠI SƠN LEGAL',
+          description: 'Hệ sinh thái tra cứu, đối chiếu và kiểm toán văn bản quy phạm pháp luật ĐẠI SƠN LEGAL tích hợp bản đồ pháp luật tương tác, đối soát chéo và đọc ngoại tuyến.',
           theme_color: '#FBF9F5',
           background_color: '#FBF9F5',
           display: 'standalone',

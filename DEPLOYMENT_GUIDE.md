@@ -1,6 +1,6 @@
-# HƯỚNG DẪN & HỒ SƠ TRIỂN KHAI (DEPLOYMENT MANIFEST) — ĐẠI SƠN LEGAL (LexViet)
+# HƯỚNG DẪN & HỒ SƠ TRIỂN KHAI (DEPLOYMENT MANIFEST) — ĐẠI SƠN LEGAL
 
-> **Cập nhật lần cuối:** 2026-11-11  
+> **Cập nhật lần cuối:** 2026-11-12  
 > **Trạng thái Production:** `LIVE / ACTIVE (HTTP 200 OK)`  
 > **Kiến trúc:** Unified Fullstack (Express API + React 19 Vite PWA + Deterministic SSoT Legal Engine)
 
@@ -11,11 +11,11 @@
 | Hạng mục | Giá trị cấu hình |
 | :--- | :--- |
 | **Nền tảng Cloud PaaS** | **Railway Cloud** (`production`) |
-| **URL Web App Chính thức (HTTPS/PWA)** | **https://lexviet-web-production.up.railway.app** |
-| **URL Healthcheck API** | **https://lexviet-web-production.up.railway.app/api/health** |
+| **URL Web App Chính thức (HTTPS/PWA)** | **https://daison-legal.up.railway.app** |
+| **URL Healthcheck API** | **https://daison-legal.up.railway.app/api/health** |
 | **GitHub Source Repository** | `https://github.com/tranvodaison-bot/LEGAL` (Nhánh: `main`) |
-| **Railway Project Name / ID** | `daison-lexviet-legal` (`1ed0a5cc-93ef-4124-bfb2-67f8dc01fa47`) |
-| **Railway Service Name / ID** | `lexviet-web` (`fdfe6249-481b-4723-92ad-2e6e5a119410`) |
+| **Railway Project ID** | `1ed0a5cc-93ef-4124-bfb2-67f8dc01fa47` |
+| **Railway Service ID** | `fdfe6249-481b-4723-92ad-2e6e5a119410` |
 | **Railway Environment ID** | `production` (`6e70bca6-e394-45da-bab9-55757876803c`) |
 | **Railway Workspace ID** | `9d48bd2c-803a-4600-9ae5-06a50fbe77da` |
 | **Cổng Container (Target Port)** | `8080` (Tự động nhận qua `process.env.PORT` trong `server.ts`, fallback `3000` ở Local) |
@@ -51,7 +51,7 @@ git commit -m "chore(ssot): cap nhat du lieu va tinh nang phap ly"
 git push origin main
 ```
 
-Ngay khi lệnh `git push origin main` hoàn tất, **Railway** sẽ tự động nhận diện commit mới từ GitHub, build lại Docker image và cập nhật không gián đoạn (Zero-Downtime Rollout) lên **https://lexviet-web-production.up.railway.app**.
+Ngay khi lệnh `git push origin main` hoàn tất, **Railway** sẽ tự động nhận diện commit mới từ GitHub, build lại Docker image và cập nhật không gián đoạn (Zero-Downtime Rollout) lên **https://daison-legal.up.railway.app**.
 
 ---
 

@@ -45,7 +45,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ onOpenNewDoc
           <div className="w-full max-w-md rounded-2xl bg-[#FBF9F5] dark:bg-[#1E1D1B] border border-[#E5DEC9] dark:border-[#2E2C28] p-6 shadow-xl">
             <div className="flex items-center justify-between border-b border-[#E5DEC9] dark:border-[#2E2C28] pb-3">
               <h3 className="text-base font-display font-semibold text-[#1C1917] dark:text-[#F5F2EB]">
-                Cài đặt LexViet đọc ngoại tuyến
+                Cài đặt ĐẠI SƠN LEGAL đọc ngoại tuyến
               </h3>
               <button
                 onClick={() => setShowGuideModal(false)}
@@ -57,7 +57,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ onOpenNewDoc
             </div>
             <div className="mt-4 space-y-3 text-sm text-[#44403C] dark:text-[#D6D3CD] leading-relaxed">
               <p>
-                Ứng dụng <strong>LexViet</strong> đã kích hoạt Service Worker lưu trữ ngoại tuyến toàn bộ văn bản pháp luật và bản đồ đối soát chéo.
+                Ứng dụng <strong>ĐẠI SƠN LEGAL</strong> đã kích hoạt Service Worker lưu trữ ngoại tuyến toàn bộ văn bản pháp luật và bản đồ đối soát chéo.
               </p>
               <div className="p-3.5 rounded-xl bg-[#F3EFE6] dark:bg-[#141413] border border-[#E5DEC9] dark:border-[#2E2C28] space-y-2 text-xs">
                 <p className="font-semibold text-[#1C1917] dark:text-[#F5F2EB]">

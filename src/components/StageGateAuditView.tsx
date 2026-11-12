@@ -670,7 +670,7 @@ export const StageGateAuditView: React.FC<StageGateAuditViewProps> = ({
           onRunAiAuditForStep={handleRunAiMultiAgentAudit}
         />
 
-        {/* 3. DualDrawerInspector (Left: Deliverables/OCR/3-Agents | Right: LexViet Legal Clause Cross-Check) */}
+        {/* 3. DualDrawerInspector (Left: Deliverables/OCR/3-Agents | Right: ĐẠI SƠN LEGAL Clause Cross-Check) */}
         <DualDrawerInspector
           step={activeStep}
           record={activeRecord}

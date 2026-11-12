@@ -287,7 +287,7 @@ ${contractText}
     }
   });
 
-  // 4. Endpoint Multi-Agent Stage-Gate & Risk Audit Engine (AIPM OS x LexViet ĐẠI SƠN)
+  // 4. Endpoint Multi-Agent Stage-Gate & Risk Audit Engine (AIPM OS x ĐẠI SƠN LEGAL)
   app.post('/api/stage-gate-audit', async (req, res) => {
     try {
       const {
@@ -423,7 +423,7 @@ Hãy trả về nhận định tổng hợp ngắn gọn (tối đa 130 từ) g�
         });
       }
 
-      const systemPrompt = `Bạn là Hệ thống Document AI & OCR Đa phương thức chuyên biệt cho Hành chính Nhà nước & Quản lý Dự án Đầu tư Xây dựng Việt Nam (ĐẠI SƠN · LexViet × AIPM OS), tuân thủ Nghị định 30/2020/NĐ-CP về công tác văn thư, Luật Đầu tư công 58/2024/QH15 và Luật Xây dựng 135/2025/QH15.
+      const systemPrompt = `Bạn là Hệ thống Document AI & OCR Đa phương thức chuyên biệt cho Hành chính Nhà nước & Quản lý Dự án Đầu tư Xây dựng Việt Nam (ĐẠI SƠN LEGAL × AIPM OS), tuân thủ Nghị định 30/2020/NĐ-CP về công tác văn thư, Luật Đầu tư công 58/2024/QH15 và Luật Xây dựng 135/2025/QH15.
 Nhiệm vụ của bạn là đọc tệp hồ sơ đính kèm (PDF bản quét có dấu đỏ, ảnh chụp văn bản, hoặc nội dung tệp Word .DOCX) của tệp "${filename}" ${
         stepCode
           ? `thuộc bước tuân thủ ${stepCode} (${stepName}) — Cơ quan thẩm định/phê duyệt chuẩn luật định: "${expectedAuthority}"`
@@ -574,7 +574,7 @@ Nhiệm vụ của bạn là đọc tệp hồ sơ đính kèm (PDF bản quét 
         });
       }
 
-      const prompt = `Bạn là Hệ thống Biên tập Pháp điển hóa Quốc gia thuộc Hệ sinh thái Pháp lý ĐẠI SƠN (LexViet SSoT).
+      const prompt = `Bạn là Hệ thống Biên tập Pháp điển hóa Quốc gia thuộc Hệ sinh thái Pháp lý ĐẠI SƠN (ĐẠI SƠN LEGAL SSoT).
 Người dùng đang đọc văn bản:
 - Loại & Số hiệu: ${docType} số ${docNumber}
 - Tên văn bản: "${docTitle}"
@@ -697,7 +697,7 @@ Hãy biên tập bổ sung đầy đủ hệ thống các Chương và Điều k
             .join('\n')
         : '';
 
-      const prompt = `Bạn là Hệ thống Prompt Engine AI Đối Soát Chéo Điều - Khoản - Điểm Liên Luật thuộc Hệ sinh thái Pháp lý ĐẠI SƠN (LexViet SSoT × Kiểm toán Đầu tư Xây dựng).
+      const prompt = `Bạn là Hệ thống Prompt Engine AI Đối Soát Chéo Điều - Khoản - Điểm Liên Luật thuộc Hệ sinh thái Pháp lý ĐẠI SƠN (ĐẠI SƠN LEGAL SSoT × Kiểm toán Đầu tư Xây dựng).
 Người dùng đang thẩm định chuyên sâu điều khoản sau tại Cột 3:
 - Văn bản gốc đang xem: ${docNumber} — "${docTitle}" (Lĩnh vực: ${field} | Giai đoạn WBS: ${projectStage})
 - Điều khoản: ${articleNo}. ${articleTitle}

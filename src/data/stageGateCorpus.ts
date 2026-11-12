@@ -1276,7 +1276,7 @@ CREATE TABLE IF NOT EXISTS master_compliance_steps (
     inspection_body TEXT,              -- Cơ quan thẩm định/kiểm tra/phê duyệt
     deliverables TEXT[] DEFAULT '{}',  -- ['Hồ sơ số', 'BIM/CDE', 'GIS', 'Quyết định']
     risk_flags TEXT[] DEFAULT '{}',    -- Danh sách mã cảnh báo rủi ro liên quan
-    legal_references JSONB DEFAULT '[]' -- Liên kết điều luật trong LexViet [{ law: "Luật Đầu tư công 2024", article: "Điều 18" }]
+    legal_references JSONB DEFAULT '[]' -- Liên kết điều luật trong ĐẠI SƠN LEGAL [{ law: "Luật Đầu tư công 2024", article: "Điều 18" }]
 );
 
 -- 4. Bảng Tiến độ tuân thủ theo Dự án cụ thể (Project Instance)
