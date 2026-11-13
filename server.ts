@@ -929,9 +929,19 @@ Hãy lập MA TRẬN ĐỐI SOÁT CHÉO LIÊN LUẬT (liên kết trực tiếp 
           clause_count: clauseCount || undefined,
         };
       });
+    const rawUrl = found.url_decoded || '';
+    let safeUrl = rawUrl;
+    const soMatch = docNumber.match(/^(\d+(?:\.\d+)?)\/(\d{4})/);
+    if (soMatch && rawUrl.includes('datafiles.chinhphu.vn')) {
+      const fname = (rawUrl.split('/').pop() || '').toLowerCase();
+      const fMatch = fname.match(/(\d+)[_-](\d{4})/);
+      if (fMatch && (fMatch[1] !== soMatch[1] || fMatch[2] !== soMatch[2])) {
+        safeUrl = '';
+      }
+    }
     return res.json({
       docNumber: found.soHieu,
-      url: found.url_decoded || '',
+      url: safeUrl,
       articles,
     });
   });

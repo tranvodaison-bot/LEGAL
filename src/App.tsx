@@ -1804,7 +1804,6 @@ export default function App() {
             is_annulled: seedArt.is_annulled ?? extArt.is_annulled,
             amendment_info: seedArt.amendment_info ?? extArt.amendment_info,
             clauses: seedArt.clauses ?? extArt.clauses,
-            content: seedArt.content.length > extArt.content.length ? seedArt.content : extArt.content,
           }
         : extArt;
     });
@@ -3769,8 +3768,9 @@ export default function App() {
                         <a
                           href={
                             inspectedDoc.national_database_url ||
-                            inspectedDoc.source_url ||
-                            'https://vbpl.vn'
+                            `https://vbpl.vn/TW/Pages/vbpq-timkiem.aspx?Keyword=${encodeURIComponent(
+                              inspectedDoc.doc_number
+                            )}`
                           }
                           target="_blank"
                           rel="noreferrer"
@@ -4871,7 +4871,9 @@ export default function App() {
         onClose={() => setConsolidatedDrawerDocId(null)}
         document={
           consolidatedDrawerDocId
-            ? docMap.get(consolidatedDrawerDocId) || inspectedDoc || null
+            ? consolidatedDrawerDocId === inspectedDoc?.id
+              ? inspectedDoc
+              : docMap.get(consolidatedDrawerDocId) || inspectedDoc || null
             : null
         }
         allDocuments={documents}

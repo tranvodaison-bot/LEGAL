@@ -2859,7 +2859,7 @@ export const EXTERNAL_VBPL_LIST: ExternalVbplIndexEntry[] = [
     "ngayBanHanh": "10/12/2025",
     "hieuLucTu": "01/07/2026",
     "hieuLucDen": null,
-    "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/8/320_2026_nd-cp_13082026-signed.signed.pdf",
+    "url": "",
     "articles": 95,
     "chapters": 8,
     "clauses": 756,

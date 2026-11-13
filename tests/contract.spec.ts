@@ -11,6 +11,7 @@ import {
 import {
   BLOCKED_P0_DOC_IDS,
   buildSynchronizedLegalCorpus,
+  EXTERNAL_VBPL_LIST,
   NAMING_CONVENTION_V1_RULES,
   REG_MASTER_RAW_RECORDS,
   REG_MASTER_STATS,
@@ -789,4 +790,21 @@ test('TC-REG-03: Citation Verifier & IRAC Reasoning chặn tuyệt đối các b
     corpus: synced,
   });
   assert.equal(irac.epistemic_status, 'ABSTAINED_INSUFFICIENT_SSOT');
+});
+
+test('TC-REG-04: Toàn vẹn đường dẫn nguồn Công báo (không trỏ nhầm số hiệu/năm khác như 320_2026 trên 135/2025/QH15)', () => {
+  for (const item of EXTERNAL_VBPL_LIST) {
+    if (!item.url || !item.url.includes('datafiles.chinhphu.vn')) continue;
+    const soMatch = item.soHieu.trim().match(/^(\d+(?:\.\d+)?)\/(\d{4})/);
+    if (!soMatch) continue;
+    const fname = (item.url.split('/').pop() || '').toLowerCase();
+    const fMatch = fname.match(/(\d+)[_-](\d{4})/);
+    if (fMatch) {
+      assert.equal(
+        `${fMatch[1]}/${fMatch[2]}`,
+        `${soMatch[1]}/${soMatch[2]}`,
+        `URL ${item.url} của văn bản ${item.soHieu} bị trỏ nhầm sang số hiệu ${fMatch[1]}/${fMatch[2]}`
+      );
+    }
+  }
 });
