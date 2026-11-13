@@ -11,8 +11,9 @@ import {
   NAMING_CONVENTION_V1_RULES,
   REG_MASTER_RAW_RECORDS,
 } from './regMasterRaw';
+import { EXTERNAL_VBPL_INDEX } from './externalVbplIndex';
 
-export { NAMING_CONVENTION_V1_RULES, REG_MASTER_RAW_RECORDS };
+export { EXTERNAL_VBPL_INDEX, NAMING_CONVENTION_V1_RULES, REG_MASTER_RAW_RECORDS };
 
 export interface RegMasterCatalogStats {
   total_records: number;
@@ -186,7 +187,12 @@ export function regMasterRecordToLegalDocument(record: RegMasterMetadata): Legal
     ]
       .filter(Boolean)
       .join(' | '),
-    source_url: record.duong_dan_drive || undefined,
+    source_url:
+      EXTERNAL_VBPL_INDEX[record.so_hieu.trim().toUpperCase()]?.url ||
+      record.duong_dan_drive ||
+      undefined,
+    total_clauses_count:
+      EXTERNAL_VBPL_INDEX[record.so_hieu.trim().toUpperCase()]?.clauses || undefined,
     authenticity_tier: tier,
     is_consolidated: false,
     is_expiring_soon: record.quy_tac_chuyen_tiep_01_07_2026.toLowerCase().includes('hết hiệu lực'),
@@ -244,8 +250,13 @@ export function buildSynchronizedLegalCorpus(
   const matchedRegDocIds = new Set<string>();
   const enrichedBase = baseDocs.map((doc) => {
     const codeKey = doc.doc_number.trim().toUpperCase();
+    const extMeta = EXTERNAL_VBPL_INDEX[codeKey];
     const matchedReg = regByNumber.get(codeKey);
-    if (!matchedReg) return doc;
+    if (!matchedReg) {
+      return extMeta?.url && !doc.source_url
+        ? { ...doc, source_url: extMeta.url }
+        : doc;
+    }
 
     matchedRegDocIds.add(matchedReg.doc_id);
     return {
@@ -254,7 +265,7 @@ export function buildSynchronizedLegalCorpus(
       parent_doc_id: doc.parent_doc_id ?? (matchedReg.parent_doc_id_qa || undefined),
       is_blocked_p0: doc.is_blocked_p0 ?? matchedReg.is_blocked_p0,
       reg_master_meta: doc.reg_master_meta ?? matchedReg,
-      source_url: doc.source_url ?? (matchedReg.duong_dan_drive || undefined),
+      source_url: doc.source_url ?? (extMeta?.url || matchedReg.duong_dan_drive || undefined),
     };
   });
 

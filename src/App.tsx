@@ -66,7 +66,10 @@ import {
   VBPL_CATEGORY_GROUPS,
   POPULAR_SEARCH_KEYWORDS,
 } from './data/legalCorpus';
-import { buildSynchronizedLegalCorpus } from './data/regMasterCatalog';
+import {
+  buildSynchronizedLegalCorpus,
+  EXTERNAL_VBPL_INDEX,
+} from './data/regMasterCatalog';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { LegalReaderModal } from './components/LegalReaderModal';
 import {
@@ -1744,14 +1747,73 @@ export default function App() {
     [visibleCatalogLimit, filteredDocuments.length]
   );
 
-  // Active Document & Article for Column 3 Inspector (O(1) Map Lookup)
-  const inspectedDoc = useMemo(() => {
+  const [externalArticlesCache, setExternalArticlesCache] = useState<
+    Record<string, { url: string; articles: LegalDocument['articles'] }>
+  >({});
+
+  // Active Document & Article for Column 3 Inspector (O(1) Map Lookup + On-Demand Full Chương/Điều Hydration)
+  const rawInspectedDoc = useMemo(() => {
     return (
       docMap.get(selectedDocId) ||
       filteredDocuments[0] ||
       documents[0]
     );
   }, [docMap, selectedDocId, filteredDocuments, documents]);
+
+  useEffect(() => {
+    if (!rawInspectedDoc || rawInspectedDoc.is_blocked_p0) return;
+    const codeKey = rawInspectedDoc.doc_number.trim().toUpperCase();
+    if (!EXTERNAL_VBPL_INDEX[codeKey] || externalArticlesCache[codeKey]) return;
+
+    let cancelled = false;
+    fetch(`/api/external-corpus/doc?docNumber=${encodeURIComponent(rawInspectedDoc.doc_number)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data || !Array.isArray(data.articles)) return;
+        setExternalArticlesCache((prev) => ({
+          ...prev,
+          [codeKey]: { url: data.url || '', articles: data.articles },
+        }));
+      })
+      .catch(() => {
+        // Ignore network errors when offline
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rawInspectedDoc, externalArticlesCache]);
+
+  const inspectedDoc = useMemo(() => {
+    if (!rawInspectedDoc) return rawInspectedDoc;
+    const codeKey = rawInspectedDoc.doc_number.trim().toUpperCase();
+    const extData = externalArticlesCache[codeKey];
+    if (!extData || extData.articles.length <= rawInspectedDoc.articles.length) {
+      return rawInspectedDoc;
+    }
+    // Preserve SSoT amendment/clause metadata on matching article_no
+    const seedByArtNo = new Map(
+      rawInspectedDoc.articles.map((a) => [a.article_no.trim().toLowerCase(), a])
+    );
+    const mergedArticles = extData.articles.map((extArt) => {
+      const seedArt = seedByArtNo.get(extArt.article_no.trim().toLowerCase());
+      return seedArt
+        ? {
+            ...extArt,
+            id: seedArt.id,
+            is_amended: seedArt.is_amended ?? extArt.is_amended,
+            is_annulled: seedArt.is_annulled ?? extArt.is_annulled,
+            amendment_info: seedArt.amendment_info ?? extArt.amendment_info,
+            clauses: seedArt.clauses ?? extArt.clauses,
+            content: seedArt.content.length > extArt.content.length ? seedArt.content : extArt.content,
+          }
+        : extArt;
+    });
+    return {
+      ...rawInspectedDoc,
+      source_url: rawInspectedDoc.source_url || extData.url || undefined,
+      articles: mergedArticles,
+    };
+  }, [rawInspectedDoc, externalArticlesCache]);
 
   // Isolated AI reference draft & Quarantine inspection state (REM-P2-01)
   const inspectedAiDraft = useMemo(() => {
@@ -3688,18 +3750,35 @@ export default function App() {
                         </div>
                       </div>
 
-                      <a
-                        href={
-                          inspectedDoc.national_database_url ||
-                          inspectedDoc.source_url ||
-                          'https://vbpl.vn'
-                        }
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 rounded-lg bg-[#152D42] hover:bg-[#1E3D58] text-[#E9C96D] text-xs font-bold shrink-0 inline-flex items-center gap-1.5 transition shadow-2xs self-start sm:self-center"
-                      >
-                        <span>↗ Mở CSDL Quốc gia</span>
-                      </a>
+                      <div className="flex flex-wrap items-center gap-1.5 shrink-0 self-start sm:self-center">
+                        {(inspectedDoc.source_url ||
+                          EXTERNAL_VBPL_INDEX[inspectedDoc.doc_number.trim().toUpperCase()]?.url) && (
+                          <a
+                            href={
+                              inspectedDoc.source_url ||
+                              EXTERNAL_VBPL_INDEX[inspectedDoc.doc_number.trim().toUpperCase()]?.url
+                            }
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold inline-flex items-center gap-1.5 transition shadow-2xs"
+                            title="Mở tệp văn bản gốc (Google Drive / Cổng Chính phủ)"
+                          >
+                            <span>📄 Bản gốc (Drive/PDF)</span>
+                          </a>
+                        )}
+                        <a
+                          href={
+                            inspectedDoc.national_database_url ||
+                            inspectedDoc.source_url ||
+                            'https://vbpl.vn'
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1.5 rounded-lg bg-[#152D42] hover:bg-[#1E3D58] text-[#E9C96D] text-xs font-bold inline-flex items-center gap-1.5 transition shadow-2xs"
+                        >
+                          <span>↗ Mở CSDL Quốc gia</span>
+                        </a>
+                      </div>
                     </div>
 
                     {/* DÒNG TÓM LƯỢC CẤU TRÚC VĂN BẢN: X Điều / Y Khoản/Điểm */}
@@ -4113,64 +4192,71 @@ export default function App() {
                         </span>
                       </div>
 
-                      <div className="divide-y divide-stone-200/70 dark:divide-stone-800 max-h-60 overflow-y-auto">
-                        {inspectedDoc.articles.map((art) => {
-                          const isCurrent = inspectedArticle?.id === art.id;
-                          const clauseCount =
-                            art.clause_count ??
-                            Math.max(
-                              1,
-                              (art.content.match(/(?:^|\n)\s*\d+\.\s+/g) || [])
-                                .length
-                            );
-                          return (
-                            <button
-                              key={art.id}
-                              onClick={() => {
-                                setSelectedArticleId(art.id);
-                                const el = document.getElementById(`sec-art-${art.id}`);
-                                el?.scrollIntoView({ behavior: 'smooth' });
-                              }}
-                              className={`w-full py-2 px-2 text-left text-xs sm:text-sm flex items-center justify-between gap-2 hover:bg-[#FBF5DF]/60 dark:hover:bg-stone-800 rounded transition cursor-pointer ${
-                                isCurrent
-                                  ? 'font-bold text-[#152D42] dark:text-amber-300 bg-[#FBF5DF]/80 dark:bg-stone-800/80'
-                                  : 'text-[#286181] dark:text-stone-300'
-                              }`}
-                            >
-                              <span className="truncate flex items-center gap-1.5 min-w-0">
-                                <span className="font-mono-code shrink-0">
-                                  {art.article_no}.
-                                </span>
-                                <span className="truncate">{art.article_title}</span>
-                                {art.is_amended && (
-                                  <span
-                                    className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/80 border border-amber-400 text-amber-900 dark:text-amber-200 text-[10px] font-bold shrink-0 inline-flex items-center gap-1"
-                                    title={
-                                      art.amendment_info?.amending_doc_number
-                                        ? `Đã sửa đổi bởi ${art.amendment_info.amending_doc_number}`
-                                        : 'Điều khoản đã qua sửa đổi, bổ sung'
-                                    }
-                                  >
-                                    <span>⚠</span>
-                                    <span className="hidden sm:inline">
-                                      Đã sửa đổi bởi{' '}
-                                      {art.amendment_info?.amending_doc_number ||
-                                        'VB SĐ'}
-                                    </span>
-                                  </span>
-                                )}
-                              </span>
-                              <span className="flex items-center gap-2 shrink-0">
-                                <span className="px-1.5 py-0.5 rounded bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 font-mono-code text-[11px] font-semibold text-stone-600 dark:text-stone-300">
-                                  [{clauseCount}] khoản
-                                </span>
-                                <span className="text-[10px] text-stone-400 hidden md:inline">
-                                  {art.chapter_no}
-                                </span>
-                              </span>
-                            </button>
-                          );
-                        })}
+                      <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                        {(() => {
+                          const groups: Array<{ chapterLabel: string; items: LegalDocument['articles'] }> = [];
+                          for (const art of inspectedDoc.articles) {
+                            const label = [art.chapter_no, art.chapter_title]
+                              .filter(Boolean)
+                              .join('. ')
+                              .trim() || 'Nội dung văn bản';
+                            const last = groups[groups.length - 1];
+                            if (last && last.chapterLabel === label) {
+                              last.items.push(art);
+                            } else {
+                              groups.push({ chapterLabel: label, items: [art] });
+                            }
+                          }
+                          return groups.map((grp, gIdx) => (
+                            <div key={`${grp.chapterLabel}-${gIdx}`} className="space-y-0.5">
+                              <div className="px-2.5 py-1 rounded bg-[#152D42] text-white text-[11px] font-bold tracking-wide">
+                                {grp.chapterLabel}
+                              </div>
+                              <div className="divide-y divide-stone-200/60 dark:divide-stone-800">
+                                {grp.items.map((art) => {
+                                  const isCurrent = inspectedArticle?.id === art.id;
+                                  const clauseCount =
+                                    art.clause_count ??
+                                    Math.max(
+                                      1,
+                                      (art.content.match(/(?:^|\n)\s*\d+\.\s+/g) || []).length
+                                    );
+                                  return (
+                                    <button
+                                      key={art.id}
+                                      onClick={() => {
+                                        setSelectedArticleId(art.id);
+                                        const el = document.getElementById(`sec-art-${art.id}`);
+                                        el?.scrollIntoView({ behavior: 'smooth' });
+                                      }}
+                                      className={`w-full py-1.5 px-2 text-left text-xs flex items-center justify-between gap-2 hover:bg-[#FBF5DF]/60 dark:hover:bg-stone-800 rounded transition cursor-pointer ${
+                                        isCurrent
+                                          ? 'font-bold text-[#152D42] dark:text-amber-300 bg-[#FBF5DF]/80 dark:bg-stone-800/80'
+                                          : 'text-[#286181] dark:text-stone-300'
+                                      }`}
+                                    >
+                                      <span className="truncate flex items-center gap-1.5 min-w-0">
+                                        <span className="font-mono-code font-semibold shrink-0">
+                                          {art.article_no}.
+                                        </span>
+                                        <span className="truncate">{art.article_title}</span>
+                                        {art.is_amended && (
+                                          <span className="px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-950/80 border border-amber-400 text-amber-900 dark:text-amber-200 text-[9px] font-bold shrink-0">
+                                            ⚠ SĐ
+                                          </span>
+                                        )}
+                                      </span>
+                                      <span className="flex-1 border-b border-dotted border-stone-300 dark:border-stone-700 min-w-[16px]" />
+                                      <span className="font-mono-code text-[11px] text-stone-500 dark:text-stone-400 shrink-0">
+                                        {clauseCount} khoản
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ));
+                        })()}
                       </div>
                     </div>
                   )}

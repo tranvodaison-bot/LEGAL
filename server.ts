@@ -1,4 +1,5 @@
 import express from 'express';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -860,6 +861,78 @@ Hãy lập MA TRẬN ĐỐI SOÁT CHÉO LIÊN LUẬT (liên kết trực tiếp 
       parsed_count: parsed.length,
       blocked_p0_count: blockedCount,
       records: parsed,
+    });
+  });
+
+  // 8c. Endpoint Trả toàn văn Chương/Điều/Khoản từ kho thuvien-vbpl-26.json (on-demand, không làm nặng bundle)
+  type ExternalRawDoc = {
+    soHieu?: string;
+    url_decoded?: string;
+    dieu?: Array<{
+      so?: string;
+      tieuDe?: string;
+      chuong?: string;
+      muc?: string;
+      noiDung?: Array<{ loai?: string; so?: string; text?: string }>;
+    }>;
+  };
+  let cachedExternalCorpus: Map<string, ExternalRawDoc> | null = null;
+  const getExternalCorpusMap = () => {
+    if (cachedExternalCorpus) return cachedExternalCorpus;
+    cachedExternalCorpus = new Map();
+    const jsonPath = path.resolve(__dirname, 'data', 'external', 'thuvien-vbpl-26.json');
+    if (fs.existsSync(jsonPath)) {
+      const list = JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as ExternalRawDoc[];
+      for (const item of list) {
+        const key = (item.soHieu || '').trim().toUpperCase();
+        if (key && !cachedExternalCorpus.has(key)) {
+          cachedExternalCorpus.set(key, item);
+        }
+      }
+    }
+    return cachedExternalCorpus;
+  };
+
+  app.get('/api/external-corpus/doc', (req, res) => {
+    const docNumber = String(req.query.docNumber || '').trim().toUpperCase();
+    if (!docNumber) {
+      return res.status(400).json({ error: 'Thiếu tham số docNumber.' });
+    }
+    const found = getExternalCorpusMap().get(docNumber);
+    if (!found) {
+      return res.status(404).json({ error: 'Không tìm thấy văn bản trong kho mở rộng.' });
+    }
+    const articles = (found.dieu || [])
+      .filter((d) => d.so && d.so !== '0')
+      .map((d, idx) => {
+        const chuongRaw = (d.chuong || '').trim();
+        const chMatch = chuongRaw.match(/^(Chương\s+[IVXLCDM\d]+)\.?\s*(.*)$/i);
+        const chapterNo = chMatch ? chMatch[1] : chuongRaw ? 'Chương' : 'Nội dung';
+        const chapterTitle = chMatch ? chMatch[2] : chuongRaw;
+        const noiDung = Array.isArray(d.noiDung) ? d.noiDung : [];
+        const contentLines = noiDung
+          .map((n) => (n.so ? `${n.so}. ${n.text || ''}` : n.text || ''))
+          .filter(Boolean);
+        const clauseCount = noiDung.filter((n) => n.so && String(n.so).trim() !== '').length;
+        return {
+          id: `ext-${docNumber.replace(/[^a-zA-Z0-9]/g, '-')}-d${d.so}`,
+          document_id: docNumber,
+          chapter_no: chapterNo,
+          chapter_title: chapterTitle,
+          section_no: (d.muc || '').trim() || undefined,
+          article_no: `Điều ${d.so}`,
+          article_order: Number.parseInt(String(d.so), 10) || idx + 1,
+          article_title: (d.tieuDe || '').trim(),
+          content: contentLines.join('\n\n'),
+          is_active: true,
+          keywords: [],
+          clause_count: clauseCount || undefined,
+        };
+      });
+    return res.json({
+      docNumber: found.soHieu,
+      url: found.url_decoded || '',
+      articles,
     });
   });
 
