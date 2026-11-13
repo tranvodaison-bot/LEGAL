@@ -288,10 +288,10 @@ const CatalogDocumentCard = React.memo<CatalogDocumentCardProps>(
           scale: { duration: 0.18, delay: staggerDelay },
         }}
         onClick={() => onSelectDoc(doc)}
-        className={`w-full text-left p-3 rounded-lg border transition-colors duration-200 cursor-pointer ${
+        className={`w-full text-left px-3 py-2.5 rounded-lg border transition-colors duration-150 cursor-pointer ${
           isSelected
             ? 'bg-[#FBF5DF] dark:bg-[#2B271C] border-[#B69B4F] border-l-[3px] border-l-[#C6A342] shadow-xs'
-            : 'bg-white dark:bg-[#1E1D1B] border-[#DEDED8] dark:border-[#2E2C28] hover:border-[#91B0C3]'
+            : 'bg-white dark:bg-[#1E1D1B] border-[#E5E5DF] dark:border-[#2E2C28] hover:border-[#91B0C3]'
         }`}
       >
         <div className="flex flex-wrap items-center gap-1.5">
@@ -304,67 +304,6 @@ const CatalogDocumentCard = React.memo<CatalogDocumentCardProps>(
             {doc.doc_number}
           </span>
 
-          {/* Phả hệ văn bản: Badge "🧬 {amended_count}" cho văn bản đã qua sửa đổi */}
-          {amendedCount > 0 && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectDoc(doc);
-                onOpenGenealogyTree?.(doc);
-              }}
-              className="text-[10px] font-mono-code font-bold px-1.5 py-0.5 rounded bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/70 dark:hover:bg-amber-900/90 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700/80 inline-flex items-center gap-0.5 cursor-pointer transition"
-              title={`Văn bản gốc đã qua ${amendedCount} lần sửa đổi, bổ sung — Nhấp để mở Biểu đồ Phả hệ văn bản (D3 Tree)`}
-            >
-              🧬 {amendedCount}
-            </button>
-          )}
-
-          {/* Phả hệ văn bản: Badge "SĐ" cho văn bản sửa đổi, bổ sung */}
-          {isAmendingDoc && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectDoc(doc);
-                onOpenGenealogyTree?.(doc);
-              }}
-              className="text-[9px] font-mono-code font-bold px-1.5 py-0.5 rounded bg-purple-100 hover:bg-purple-200 dark:bg-purple-950/70 dark:hover:bg-purple-900/90 text-purple-900 dark:text-purple-300 border border-purple-300 dark:border-purple-700/80 uppercase tracking-wider cursor-pointer transition"
-              title="Văn bản sửa đổi, bổ sung — Nhấp để xem Biểu đồ Phả hệ văn bản (D3 Tree)"
-            >
-              SĐ
-            </button>
-          )}
-
-          {/* Badge Văn bản hợp nhất Chính thức vs Bản tổng hợp nội bộ (P0-03) */}
-          {(doc.is_consolidated ||
-            Boolean(doc.consolidated_doc_number) ||
-            amendedCount > 0 ||
-            /VBHN|văn bản hợp nhất/i.test(`${doc.doc_number} ${doc.title}`)) && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectDoc(doc);
-                onOpenConsolidatedDrawer?.(doc);
-              }}
-              className="text-[9px] font-mono-code font-bold px-1.5 py-0.5 rounded bg-teal-100 hover:bg-teal-200 dark:bg-teal-950/70 dark:hover:bg-teal-900 text-teal-900 dark:text-teal-300 border border-teal-300 dark:border-teal-700/80 cursor-pointer transition"
-              title={
-                doc.authenticity_tier === 'OFFICIAL_VBHN'
-                  ? `Mở Văn bản hợp nhất chính thức (${doc.consolidated_doc_number || doc.doc_number})`
-                  : `Mở Bản tổng hợp nội bộ phục vụ tra cứu (${doc.consolidated_doc_number || `THNB-${doc.doc_number}`})`
-              }
-            >
-              📑{' '}
-              {doc.authenticity_tier === 'OFFICIAL_VBHN'
-                ? doc.consolidated_doc_number || 'VBHN'
-                : doc.consolidated_doc_number?.startsWith('THNB-')
-                ? doc.consolidated_doc_number
-                : 'Bản THNB'}
-            </button>
-          )}
-
-          {/* Badge BLOCKED_P0 & Mã định danh REG_Master */}
           {(doc.is_blocked_p0 || doc.reg_master_meta?.is_blocked_p0) && (
             <span
               className="text-[9px] font-mono-code font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-900 border border-red-300 dark:bg-red-950/70 dark:text-red-300 dark:border-red-700"
@@ -376,47 +315,50 @@ const CatalogDocumentCard = React.memo<CatalogDocumentCardProps>(
               ⛔ BLOCKED_P0
             </span>
           )}
-          {doc.legacy_doc_id && (
-            <span
-              className="text-[9px] font-mono-code font-semibold px-1.5 py-0.5 rounded bg-sky-50 text-sky-900 border border-sky-200 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800"
-              title={
-                doc.reg_master_meta?.ten_file_chuan_hoa_v1
-                  ? `REG_Master: ${doc.legacy_doc_id} | ${doc.reg_master_meta.ten_file_chuan_hoa_v1}`
-                  : `REG_Master: ${doc.legacy_doc_id}`
-              }
-            >
-              {doc.legacy_doc_id}
-              {doc.parent_doc_id ? ` ↳ ${doc.parent_doc_id}` : ''}
+
+          {doc.status === 'HET_HIEU_LUC' && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300">
+              hết hiệu lực
             </span>
           )}
 
-          {/* Badge Tỷ lệ hoàn thiện Điều khoản (Completeness Metadata P0-02) */}
-          {(() => {
-            const comp = doc.completeness_meta || computeDocumentCompleteness(doc);
-            return (
-              <span
-                className={`text-[9px] font-mono-code font-semibold px-1.5 py-0.5 rounded border ${
-                  comp.is_full_text
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
-                    : 'bg-stone-100 text-stone-700 border-stone-300 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700'
-                }`}
-                title={comp.note}
-              >
-                {comp.loaded_articles_count}/{comp.total_articles_count} Điều
-              </span>
-            );
-          })()}
+          {amendedCount > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectDoc(doc);
+                onOpenGenealogyTree?.(doc);
+              }}
+              className="text-[10px] font-mono-code font-bold px-1.5 py-0.5 rounded bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-300/80 inline-flex items-center gap-0.5 cursor-pointer transition"
+              title={`Đã qua ${amendedCount} lần sửa đổi — Mở Phả hệ văn bản`}
+            >
+              🧬 {amendedCount}
+            </button>
+          )}
 
-          {/* Badge Sắp hết hiệu lực */}
+          {isAmendingDoc && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectDoc(doc);
+                onOpenGenealogyTree?.(doc);
+              }}
+              className="text-[9px] font-mono-code font-bold px-1.5 py-0.5 rounded bg-purple-100 hover:bg-purple-200 dark:bg-purple-950/70 text-purple-900 dark:text-purple-300 border border-purple-300/80 uppercase cursor-pointer transition"
+              title="Văn bản sửa đổi, bổ sung — Mở Phả hệ văn bản"
+            >
+              SĐ
+            </button>
+          )}
+
           {(doc.is_expiring_soon ||
             (doc.status !== 'HET_HIEU_LUC' && Boolean(doc.expiration_date))) && (
             <span
-              className="text-[9px] font-mono-code font-bold px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-950/70 text-orange-900 dark:text-orange-300 border border-orange-300 dark:border-orange-700/80"
-              title={`Văn bản sắp hết hiệu lực${
-                doc.expiration_date ? ` vào ngày ${doc.expiration_date}` : ''
-              }`}
+              className="text-[9px] font-mono-code font-bold px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-950/70 text-orange-900 dark:text-orange-300 border border-orange-300/80"
+              title={`Sắp hết hiệu lực${doc.expiration_date ? `: ${doc.expiration_date}` : ''}`}
             >
-              ⏳ Sắp hết HL{doc.expiration_date ? ` (${doc.expiration_date})` : ''}
+              ⏳ Sắp hết HL
             </span>
           )}
 
@@ -427,57 +369,57 @@ const CatalogDocumentCard = React.memo<CatalogDocumentCardProps>(
           )}
         </div>
 
-        <div className="text-xs font-medium text-stone-800 dark:text-stone-200 line-clamp-2 mt-1.5 leading-snug">
+        <div className="text-xs font-medium text-stone-800 dark:text-stone-200 line-clamp-2 mt-1 leading-snug">
           {doc.title}
         </div>
 
-        <div className="mt-2 flex items-center justify-between text-[10px] text-stone-500 dark:text-stone-400">
-          <span className="truncate">{doc.field}</span>
-          <span className={`font-semibold ${statusMeta.colorClass}`}>
-            {statusMeta.label}
-          </span>
-        </div>
+        {isSelected && (
+          <div className="mt-2 pt-2 border-t border-stone-200/80 dark:border-stone-800 space-y-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-stone-500 dark:text-stone-400">
+              <span className="truncate">
+                {doc.field} · {doc.issuing_body}
+              </span>
+              {doc.legacy_doc_id && (
+                <span className="font-mono-code text-sky-800 dark:text-sky-300 font-semibold">
+                  {doc.legacy_doc_id}
+                  {doc.parent_doc_id ? ` ↳ ${doc.parent_doc_id}` : ''}
+                </span>
+              )}
+            </div>
 
-        {/* Cơ quan ban hành & Người ký hiển thị trực quan trên thẻ Cột 2 */}
-        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-[10px] text-stone-500 dark:text-stone-400">
-          <span className="truncate max-w-[58%]" title={`Cơ quan ban hành: ${doc.issuing_body}`}>
-            🏛 <b className="font-medium text-stone-700 dark:text-stone-300">{doc.issuing_body}</b>
-          </span>
-          <span className="truncate max-w-[40%] text-right" title={`Người ký: ${doc.signer}`}>
-            ✍ <b className="font-medium text-stone-700 dark:text-stone-300">{doc.signer}</b>
-          </span>
-        </div>
-
-        {/* Quick Article Pills */}
-        <div className="mt-2 pt-2 border-t border-stone-200/70 dark:border-stone-800 flex flex-wrap items-center gap-1">
-          {doc.articles.map((art) => {
-            const isArtActive = isSelected && activeArticleId === art.id;
-            return (
-              <button
-                key={art.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectDoc(doc, art.id);
-                }}
-                title={
-                  art.is_amended
-                    ? `${art.article_no}: Đã sửa đổi bởi ${art.amendment_info?.amending_doc_number || 'văn bản sửa đổi'}`
-                    : art.article_title
-                }
-                className={`px-2 py-0.5 rounded text-[10px] font-mono-code cursor-pointer inline-flex items-center gap-0.5 ${
-                  isArtActive
-                    ? 'bg-[#152D42] text-[#E9C96D] font-bold'
-                    : art.is_amended
-                    ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/60 hover:bg-amber-100'
-                    : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200'
-                }`}
-              >
-                <span>{art.article_no}</span>
-                {art.is_amended && <span className="text-[9px] text-amber-600 dark:text-amber-400">⚠</span>}
-              </button>
-            );
-          })}
-        </div>
+            {doc.articles.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1">
+                {doc.articles.map((art) => {
+                  const isArtActive = activeArticleId === art.id;
+                  return (
+                    <button
+                      key={art.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectDoc(doc, art.id);
+                      }}
+                      title={
+                        art.is_amended
+                          ? `${art.article_no}: Đã sửa đổi bởi ${art.amendment_info?.amending_doc_number || 'văn bản sửa đổi'}`
+                          : art.article_title
+                      }
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono-code cursor-pointer inline-flex items-center gap-0.5 ${
+                        isArtActive
+                          ? 'bg-[#152D42] text-[#E9C96D] font-bold'
+                          : art.is_amended
+                          ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/60 hover:bg-amber-100'
+                          : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200'
+                      }`}
+                    >
+                      <span>{art.article_no}</span>
+                      {art.is_amended && <span className="text-[9px] text-amber-600 dark:text-amber-400">⚠</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </motion.div>
     );
   }
@@ -2561,67 +2503,67 @@ export default function App() {
         </div>
       </header>
 
-      {/* SECONDARY NAVIGATION RIBBON: 5 Unified Core Modules of ĐẠI SƠN */}
-      <div className="bg-[#112436] text-stone-200 px-4 sm:px-6 py-1.5 border-b border-[#1E3B56] flex flex-wrap items-center justify-between gap-2 shrink-0">
-        <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto text-xs font-medium py-0.5">
+      {/* SECONDARY NAVIGATION RIBBON: Slim Single-Row Navigation */}
+      <div className="bg-[#112436] text-stone-200 px-4 sm:px-6 py-1 border-b border-[#1E3B56] flex items-center justify-between gap-2 shrink-0">
+        <nav className="flex items-center gap-1 overflow-x-auto text-[11px] font-medium">
           <button
             onClick={() => setActiveView('library')}
-            className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 py-1 rounded-md transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
               activeView === 'library'
                 ? 'bg-[#C6A342] text-[#152D42] font-bold shadow-xs'
                 : 'text-stone-300 hover:bg-white/10 hover:text-white'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Tra cứu văn bản (3 Cột)</span>
+            <span>Tra cứu VBPL</span>
           </button>
 
           <button
             onClick={() => setActiveView('reasoning_case')}
-            className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 py-1 rounded-md transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
               activeView === 'reasoning_case'
                 ? 'bg-[#C6A342] text-[#152D42] font-bold shadow-xs'
                 : 'text-stone-300 hover:bg-white/10 hover:text-white'
             }`}
           >
             <Scale className="w-3.5 h-3.5" />
-            <span>Suy luận IRAC+ &amp; Hồ sơ Vụ việc</span>
+            <span>IRAC+ &amp; Vụ việc</span>
           </button>
 
           <button
             onClick={() => setActiveView('stage_gate')}
-            className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 py-1 rounded-md transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
               activeView === 'stage_gate'
                 ? 'bg-[#C6A342] text-[#152D42] font-bold shadow-xs'
                 : 'text-stone-300 hover:bg-white/10 hover:text-white'
             }`}
           >
             <ClipboardCheck className="w-3.5 h-3.5" />
-            <span>Stage-Gate &amp; Kiểm toán (17 Gates)</span>
+            <span>Stage-Gate (17)</span>
           </button>
 
           <button
             onClick={() => setActiveView('compliance')}
-            className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 py-1 rounded-md transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
               activeView === 'compliance'
                 ? 'bg-[#C6A342] text-[#152D42] font-bold shadow-xs'
                 : 'text-stone-300 hover:bg-white/10 hover:text-white'
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Kiểm tra pháp lý & Bản đồ</span>
+            <span>Kiểm tra &amp; Bản đồ</span>
           </button>
 
           <button
             onClick={() => setActiveView('contract')}
-            className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 py-1 rounded-md transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
               activeView === 'contract'
                 ? 'bg-[#C6A342] text-[#152D42] font-bold shadow-xs'
                 : 'text-stone-300 hover:bg-white/10 hover:text-white'
             }`}
           >
             <FileCheck2 className="w-3.5 h-3.5" />
-            <span>Soạn thảo & Rà soát hợp đồng</span>
+            <span>Hợp đồng</span>
           </button>
 
           <button
