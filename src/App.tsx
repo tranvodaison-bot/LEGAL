@@ -2809,260 +2809,31 @@ export default function App() {
                 </select>
               </div>
 
-              {/* Bộ lọc nhanh Trạng thái văn bản: Đang hiệu lực, Sắp hết hiệu lực, Văn bản hợp nhất */}
-              <div className="p-2 rounded-lg bg-[#FBF9F5] dark:bg-[#141413] border border-stone-200 dark:border-stone-800 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#152D42] dark:text-amber-300">
-                    Trạng thái văn bản
-                  </span>
-                  {selectedStatus !== 'all' && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedStatus('all')}
-                      className="text-[10px] font-semibold text-[#286181] dark:text-amber-400 hover:underline cursor-pointer"
-                    >
-                      Tất cả trạng thái
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1">
-                  {(
-                    [
-                      {
-                        id: 'all',
-                        label: 'Tất cả',
-                        count: statusFilterCounts.all,
-                      },
-                      {
-                        id: 'DANG_HIEU_LUC',
-                        label: '🟢 Đang hiệu lực',
-                        count: statusFilterCounts.DANG_HIEU_LUC,
-                      },
-                      {
-                        id: 'SAP_HET_HIEU_LUC',
-                        label: '⏳ Sắp hết hiệu lực',
-                        count: statusFilterCounts.SAP_HET_HIEU_LUC,
-                      },
-                      {
-                        id: 'VAN_BAN_HOP_NHAT',
-                        label: '📑 Văn bản hợp nhất',
-                        count: statusFilterCounts.VAN_BAN_HOP_NHAT,
-                      },
-                      {
-                        id: 'HET_HIEU_LUC',
-                        label: 'Đã hết hiệu lực',
-                        count: statusFilterCounts.HET_HIEU_LUC,
-                      },
-                    ] as Array<{
-                      id: DocumentStatusFilterType;
-                      label: string;
-                      count: number;
-                    }>
-                  ).map((item) => {
-                    const isActive = selectedStatus === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setSelectedStatus(item.id)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition cursor-pointer inline-flex items-center gap-1 ${
-                          isActive
-                            ? 'bg-[#152D42] text-[#E9C96D] dark:bg-[#C6A342] dark:text-[#152D42]'
-                            : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700 hover:border-[#C6A342]'
-                        }`}
-                      >
-                        <span>{item.label}</span>
-                        <span className="font-mono-code opacity-80">
-                          ({item.count})
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Bộ lọc Ngày ban hành (Issue Date Range Filter + Quick Year Presets) */}
-              <div className="p-2 rounded-lg bg-[#FBF9F5] dark:bg-[#141413] border border-stone-200 dark:border-stone-800 space-y-1.5">
-                <div className="flex flex-wrap items-center justify-between gap-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#152D42] dark:text-amber-300 flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-[#C6A342]" />
-                    <span>Ngày ban hành</span>
-                  </span>
-                  <div className="flex flex-wrap items-center gap-1">
-                    {[
-                      { label: 'Tất cả', from: '', to: '' },
-                      {
-                        label: '2025–2026',
-                        from: '2025-01-01',
-                        to: '2026-12-31',
-                      },
-                      { label: '2026', from: '2026-01-01', to: '2026-12-31' },
-                      { label: '2025', from: '2025-01-01', to: '2025-12-31' },
-                      { label: '≤ 2024', from: '', to: '2024-12-31' },
-                    ].map((preset) => {
-                      const isActivePreset =
-                        issueDateFrom === preset.from &&
-                        issueDateTo === preset.to;
-                      return (
-                        <button
-                          key={preset.label}
-                          type="button"
-                          onClick={() => {
-                            setIssueDateFrom(preset.from);
-                            setIssueDateTo(preset.to);
-                          }}
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition cursor-pointer ${
-                            isActivePreset
-                              ? 'bg-[#152D42] text-[#E9C96D] dark:bg-[#C6A342] dark:text-[#152D42]'
-                              : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 hover:border-[#C6A342]'
-                          }`}
-                        >
-                          {preset.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-1.5 items-center">
-                  <div>
-                    <label className="block text-[9px] text-stone-400 mb-0.5">
-                      Từ ngày
-                    </label>
-                    <input
-                      type="date"
-                      value={issueDateFrom}
-                      onChange={(e) => setIssueDateFrom(e.target.value)}
-                      className="w-full px-1.5 py-1 text-[11px] font-mono-code rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#1E1D1B] text-stone-800 dark:text-stone-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] text-stone-400 mb-0.5">
-                      Đến ngày
-                    </label>
-                    <input
-                      type="date"
-                      value={issueDateTo}
-                      onChange={(e) => setIssueDateTo(e.target.value)}
-                      className="w-full px-1.5 py-1 text-[11px] font-mono-code rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#1E1D1B] text-stone-800 dark:text-stone-200"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Bộ lọc nâng cao: Cơ quan ban hành & Người ký */}
-              <div className="p-2 rounded-lg bg-[#FBF9F5] dark:bg-[#141413] border border-stone-200 dark:border-stone-800 space-y-1.5">
-                <div className="flex items-center justify-between gap-1">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowAdvancedCatalogFilters((prev) => !prev)
-                    }
-                    className="text-[10px] font-bold uppercase tracking-wider text-[#152D42] dark:text-amber-300 flex items-center gap-1 cursor-pointer"
-                  >
-                    <SlidersHorizontal className="w-3 h-3 text-[#C6A342]" />
-                    <span>Bộ lọc nâng cao: Cơ quan & Người ký</span>
-                    <span className="text-[9px] text-stone-400">
-                      {showAdvancedCatalogFilters ? '▾' : '▸'}
-                    </span>
-                  </button>
-
-                  {(selectedIssuingBody !== 'all' ||
-                    selectedSigner !== 'all' ||
-                    authoritySearchText) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedIssuingBody('all');
-                        setSelectedSigner('all');
-                        setAuthoritySearchText('');
-                      }}
-                      className="text-[10px] font-semibold text-[#286181] dark:text-amber-400 hover:underline cursor-pointer"
-                    >
-                      Xóa lọc cơ quan/người ký
-                    </button>
-                  )}
-                </div>
-
-                {showAdvancedCatalogFilters && (
-                  <div className="space-y-1.5 pt-0.5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      <div>
-                        <label className="block text-[9px] text-stone-400 mb-0.5">
-                          🏛 Cơ quan ban hành ({issuingBodyOptions.length})
-                        </label>
-                        <select
-                          value={selectedIssuingBody}
-                          onChange={(e) =>
-                            setSelectedIssuingBody(e.target.value)
-                          }
-                          className="w-full px-1.5 py-1 text-[11px] rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#1E1D1B] text-stone-800 dark:text-stone-200"
-                        >
-                          <option value="all">
-                            Tất cả cơ quan ({documents.length})
-                          </option>
-                          {issuingBodyOptions.map((item) => (
-                            <option key={item.name} value={item.name}>
-                              {item.name} ({item.count})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[9px] text-stone-400 mb-0.5">
-                          ✍ Người ký ({signerOptions.length})
-                        </label>
-                        <select
-                          value={selectedSigner}
-                          onChange={(e) => setSelectedSigner(e.target.value)}
-                          className="w-full px-1.5 py-1 text-[11px] rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#1E1D1B] text-stone-800 dark:text-stone-200"
-                        >
-                          <option value="all">
-                            Tất cả người ký ({documents.length})
-                          </option>
-                          {signerOptions.map((item) => (
-                            <option key={item.name} value={item.name}>
-                              {item.name} ({item.count})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={authoritySearchText}
-                        onChange={(e) => setAuthoritySearchText(e.target.value)}
-                        placeholder="Nhập nhanh tên Người ký hoặc Cơ quan ban hành (VD: Phạm Minh Chính, Quốc hội, Bộ Xây dựng...)"
-                        className="w-full px-2 py-1 text-[11px] rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#1E1D1B] text-stone-800 dark:text-stone-200 pr-6"
-                      />
-                      {authoritySearchText && (
-                        <button
-                          type="button"
-                          onClick={() => setAuthoritySearchText('')}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
+              {/* Thanh lọc nâng cao thu gọn: Ngày ban hành, Cơ quan, Người ký, Khớp dấu & Sắp xếp */}
               <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500 dark:text-stone-400">
-                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={matchVietnameseAccent}
-                    onChange={(e) => setMatchVietnameseAccent(e.target.checked)}
-                    className="accent-[#286181]"
-                  />
-                  <span>Khớp dấu tiếng Việt</span>
-                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowAdvancedCatalogFilters((prev) => !prev)
+                  }
+                  className={`px-2 py-1 rounded-md border text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition ${
+                    showAdvancedCatalogFilters ||
+                    issueDateFrom ||
+                    issueDateTo ||
+                    selectedIssuingBody !== 'all' ||
+                    selectedSigner !== 'all' ||
+                    authoritySearchText ||
+                    matchVietnameseAccent
+                      ? 'border-[#C6A342] bg-[#FBF5DF] dark:bg-amber-950/40 text-[#152D42] dark:text-amber-300'
+                      : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-[#1E1D1B] text-stone-700 dark:text-stone-300 hover:border-[#C6A342]'
+                  }`}
+                >
+                  <SlidersHorizontal className="w-3 h-3 text-[#C6A342]" />
+                  <span>Bộ lọc nâng cao</span>
+                  <span className="text-[9px] opacity-75">
+                    {showAdvancedCatalogFilters ? '▾' : '▸'}
+                  </span>
+                </button>
 
                 <div className="flex items-center gap-2">
                   <select
@@ -3092,6 +2863,117 @@ export default function App() {
                   </span>
                 </div>
               </div>
+
+              {showAdvancedCatalogFilters && (
+                <div className="p-2.5 rounded-lg bg-[#FBF9F5] dark:bg-[#141413] border border-stone-200 dark:border-stone-800 space-y-2 text-[11px]">
+                  <div className="flex flex-wrap items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#152D42] dark:text-amber-300 flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-[#C6A342]" />
+                      <span>Ngày ban hành</span>
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      {[
+                        { label: 'Tất cả', from: '', to: '' },
+                        { label: '2025–2026', from: '2025-01-01', to: '2026-12-31' },
+                        { label: '2026', from: '2026-01-01', to: '2026-12-31' },
+                        { label: '2025', from: '2025-01-01', to: '2025-12-31' },
+                        { label: '≤ 2024', from: '', to: '2024-12-31' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => {
+                            setIssueDateFrom(preset.from);
+                            setIssueDateTo(preset.to);
+                          }}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold cursor-pointer ${
+                            issueDateFrom === preset.from && issueDateTo === preset.to
+                              ? 'bg-[#152D42] text-[#E9C96D]'
+                              : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <input
+                      type="date"
+                      value={issueDateFrom}
+                      onChange={(e) => setIssueDateFrom(e.target.value)}
+                      className="w-full px-1.5 py-1 text-[11px] font-mono-code rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#1E1D1B]"
+                      aria-label="Từ ngày"
+                    />
+                    <input
+                      type="date"
+                      value={issueDateTo}
+                      onChange={(e) => setIssueDateTo(e.target.value)}
+                      className="w-full px-1.5 py-1 text-[11px] font-mono-code rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#1E1D1B]"
+                      aria-label="Đến ngày"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <select
+                      value={selectedIssuingBody}
+                      onChange={(e) => setSelectedIssuingBody(e.target.value)}
+                      className="w-full px-1.5 py-1 text-[11px] rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#1E1D1B]"
+                    >
+                      <option value="all">Tất cả cơ quan ({documents.length})</option>
+                      {issuingBodyOptions.map((item) => (
+                        <option key={item.name} value={item.name}>
+                          {item.name} ({item.count})
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={selectedSigner}
+                      onChange={(e) => setSelectedSigner(e.target.value)}
+                      className="w-full px-1.5 py-1 text-[11px] rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#1E1D1B]"
+                    >
+                      <option value="all">Tất cả người ký ({documents.length})</option>
+                      {signerOptions.map((item) => (
+                        <option key={item.name} value={item.name}>
+                          {item.name} ({item.count})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-stone-600 dark:text-stone-300">
+                      <input
+                        type="checkbox"
+                        checked={matchVietnameseAccent}
+                        onChange={(e) => setMatchVietnameseAccent(e.target.checked)}
+                        className="accent-[#286181]"
+                      />
+                      <span>Khớp dấu tiếng Việt</span>
+                    </label>
+                    {(issueDateFrom ||
+                      issueDateTo ||
+                      selectedIssuingBody !== 'all' ||
+                      selectedSigner !== 'all' ||
+                      authoritySearchText) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIssueDateFrom('');
+                          setIssueDateTo('');
+                          setSelectedIssuingBody('all');
+                          setSelectedSigner('all');
+                          setAuthoritySearchText('');
+                        }}
+                        className="text-[10px] font-semibold text-[#286181] dark:text-amber-400 hover:underline cursor-pointer"
+                      >
+                        Đặt lại bộ lọc
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Document Cards List (Progressive Windowed + Smooth Motion Transitions) */}
@@ -3280,57 +3162,28 @@ export default function App() {
                   setShowWelcomeHero(false);
                   tocSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="px-2.5 py-1 rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#141413] text-xs font-medium hover:bg-stone-50 cursor-pointer"
+                className="px-2.5 py-1 rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#141413] text-xs font-medium hover:bg-stone-50 cursor-pointer shrink-0"
                 title="Về mục lục (Phím M)"
               >
                 ☷ Mục lục
               </button>
 
-              <button
-                onClick={() => setShowWelcomeHero((v) => !v)}
-                className={`px-2.5 py-1 rounded border text-xs font-medium cursor-pointer ${
-                  showWelcomeHero
-                    ? 'border-[#C6A342] bg-[#FBF5DF] text-[#152D42] font-semibold'
-                    : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-[#141413]'
-                }`}
-              >
-                Trang chủ Tra cứu
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowColLayoutPanel((v) => !v)}
-                className={`hidden lg:inline-flex items-center gap-1 px-2.5 py-1 rounded border text-xs font-medium cursor-pointer transition ${
-                  showColLayoutPanel
-                    ? 'border-[#C6A342] bg-[#152D42] text-[#E9C96D] font-semibold'
-                    : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-[#141413] text-stone-700 dark:text-stone-200 hover:border-[#C6A342]'
-                }`}
-                title="Tùy chỉnh độ rộng & co giãn linh hoạt giữa 3 cột"
-              >
-                <Columns3 className="w-3.5 h-3.5 text-[#C6A342]" />
-                <span>
-                  Co giãn 3 cột (
-                  {colLayout.col1Collapsed ? '0' : colLayout.col1Width} ·{' '}
-                  {colLayout.col2Collapsed ? '0' : colLayout.col2Width} · 1fr)
-                </span>
-              </button>
-
-              {/* View Mode Toggle in Column 3 Top Header: "📋 Thẻ Điều khoản" vs "📄 Toàn văn A4 liên tục" */}
-              <div className="hidden sm:inline-flex items-center rounded-lg border border-[#C6A342]/70 bg-white dark:bg-[#141413] p-0.5 shrink-0">
+              {/* View Mode Toggle in Column 3 Top Header: "Thẻ" vs "A4" */}
+              <div className="hidden sm:inline-flex items-center rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-[#141413] p-0.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     setShowWelcomeHero(false);
                     setReaderViewFormat('cards');
                   }}
-                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                  className={`px-2 py-0.5 rounded-md text-xs font-semibold transition cursor-pointer ${
                     readerViewFormat === 'cards' && !showWelcomeHero
-                      ? 'bg-[#152D42] text-[#E9C96D] shadow-2xs'
-                      : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                      ? 'bg-[#152D42] text-[#E9C96D]'
+                      : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
                   }`}
                   title="Chế độ xem từng Thẻ Điều khoản"
                 >
-                  📋 Thẻ Điều khoản
+                  Thẻ
                 </button>
                 <button
                   type="button"
@@ -3338,14 +3191,14 @@ export default function App() {
                     setShowWelcomeHero(false);
                     setReaderViewFormat('continuous');
                   }}
-                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                  className={`px-2 py-0.5 rounded-md text-xs font-semibold transition cursor-pointer ${
                     readerViewFormat === 'continuous' && !showWelcomeHero
-                      ? 'bg-[#152D42] text-[#E9C96D] shadow-2xs'
-                      : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                      ? 'bg-[#152D42] text-[#E9C96D]'
+                      : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
                   }`}
-                  title="Chế độ đọc Toàn văn A4 liên tục kèm Mục lục tự động highlight"
+                  title="Chế độ đọc Toàn văn A4 liên tục"
                 >
-                  📄 Toàn văn A4 liên tục
+                  Toàn văn A4
                 </button>
               </div>
 
@@ -3358,20 +3211,15 @@ export default function App() {
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowWelcomeHero(false);
-                    setTimeout(() => {
-                      const el = document.getElementById('global-mcp-audit-summary');
-                      el?.scrollIntoView({ behavior: 'smooth' });
-                    }, 60);
-                  }}
-                  className="px-2.5 py-1 rounded border border-[#C6A342] bg-[#FBF5DF] dark:bg-amber-950/40 text-[#152D42] dark:text-amber-300 text-xs font-bold flex items-center gap-1 cursor-pointer"
-                  title="Di chuyển tới Bảng Tổng Hợp Kiểm Toán MCP (Global Audit Summary)"
+                  onClick={() => setShowColLayoutPanel((v) => !v)}
+                  className={`hidden lg:inline-flex items-center p-1.5 rounded border text-xs cursor-pointer transition ${
+                    showColLayoutPanel
+                      ? 'border-[#C6A342] bg-[#152D42] text-[#E9C96D]'
+                      : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-[#141413] text-stone-600 dark:text-stone-300 hover:border-[#C6A342]'
+                  }`}
+                  title="Cấu hình hiển thị & độ rộng 3 cột"
                 >
-                  <ClipboardCheck className="w-3.5 h-3.5 text-[#152D42] dark:text-amber-300" />
-                  <span className="hidden md:inline">
-                    Tổng hợp MCP ({totalMcpChecklistRisksCount} rủi ro)
-                  </span>
+                  <Columns3 className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => handleAdjustFontSizePx(-1)}
@@ -4126,36 +3974,8 @@ export default function App() {
                         </div>
                       )}
 
-                    {/* Thanh công cụ Đọc Trọn Vẹn Toàn Văn (View Mode Toggle: "📋 Thẻ Điều khoản" & "📄 Toàn văn A4 liên tục") */}
-                    <div className="p-3 rounded-xl bg-[#FBF5DF]/80 dark:bg-stone-900 border border-[#C6A342]/60 flex flex-wrap items-center justify-between gap-2 pt-2">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11px] font-bold text-[#152D42] dark:text-amber-300 mr-1">
-                          Chế độ xem (View Mode):
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setReaderViewFormat('cards')}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                            readerViewFormat === 'cards'
-                              ? 'bg-[#152D42] text-[#E9C96D] border-[#C6A342] shadow-2xs'
-                              : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700 hover:border-[#C6A342]'
-                          }`}
-                        >
-                          📋 Thẻ Điều khoản ({inspectedDoc.articles.length} Điều)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReaderViewFormat('continuous')}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                            readerViewFormat === 'continuous'
-                              ? 'bg-[#152D42] text-[#E9C96D] border-[#C6A342] shadow-2xs'
-                              : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700 hover:border-[#C6A342]'
-                          }`}
-                        >
-                          📄 Toàn văn A4 liên tục
-                        </button>
-                      </div>
-
+                    {/* Thanh nghiệp vụ đọc & suy luận pháp lý (đã bỏ nút trùng lặp với thanh công cụ trên) */}
+                    <div className="p-2.5 rounded-xl bg-[#FBF5DF]/70 dark:bg-stone-900 border border-[#C6A342]/50 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 text-[11px]">
                           <Calendar className="w-3.5 h-3.5 text-[#C6A342]" />
@@ -4197,18 +4017,6 @@ export default function App() {
                         >
                           <Scale className="w-3.5 h-3.5 text-emerald-200" />
                           <span>⚖ Suy luận IRAC+ (6 bước)</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setConsolidatedDrawerDocId(inspectedDoc.id)
-                          }
-                          className="px-3 py-1 rounded-lg bg-teal-800 hover:bg-teal-700 text-white border border-teal-500/70 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
-                          title="Mở Drawer Bản Văn bản Hợp nhất (VBHN) & Xuất Bản in A4 chuẩn Nghị định 30/2020/NĐ-CP kèm Mục lục Phả hệ"
-                        >
-                          <FileCheck2 className="w-3.5 h-3.5 text-teal-200" />
-                          <span>📑 Bản Hợp nhất (VBHN)</span>
                         </button>
 
                         <button
