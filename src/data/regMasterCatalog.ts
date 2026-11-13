@@ -11,9 +11,18 @@ import {
   NAMING_CONVENTION_V1_RULES,
   REG_MASTER_RAW_RECORDS,
 } from './regMasterRaw';
-import { EXTERNAL_VBPL_INDEX } from './externalVbplIndex';
+import {
+  EXTERNAL_VBPL_INDEX,
+  EXTERNAL_VBPL_LIST,
+  type ExternalVbplIndexEntry,
+} from './externalVbplIndex';
 
-export { EXTERNAL_VBPL_INDEX, NAMING_CONVENTION_V1_RULES, REG_MASTER_RAW_RECORDS };
+export {
+  EXTERNAL_VBPL_INDEX,
+  EXTERNAL_VBPL_LIST,
+  NAMING_CONVENTION_V1_RULES,
+  REG_MASTER_RAW_RECORDS,
+};
 
 export interface RegMasterCatalogStats {
   total_records: number;
@@ -227,6 +236,79 @@ export function regMasterRecordToLegalDocument(record: RegMasterMetadata): Legal
   };
 }
 
+function mapExternalDocType(loai: string): LegalDocType {
+  const s = loai.trim().toUpperCase();
+  if (s === 'LUAT') return 'Luật';
+  if (s === 'ND') return 'Nghị định';
+  if (s === 'TT') return 'Thông tư';
+  if (s === 'TTLT') return 'Thông tư liên tịch';
+  if (s === 'QD') return 'Quyết định';
+  if (s === 'NQ') return 'Nghị quyết';
+  if (s === 'CV') return 'Công văn';
+  if (s === 'VBHN') return 'Văn bản hợp nhất';
+  return 'Tài liệu';
+}
+
+function mapExternalField(catKey: string, catName: string): LegalField {
+  const k = `${catKey} ${catName}`.toLowerCase();
+  if (k.includes('ke_toan') || k.includes('kiem_toan') || k.includes('vas') || k.includes('bctc') || k.includes('tscd') || k.includes('du_phong')) {
+    return 'Kế toán · Kiểm toán';
+  }
+  if (k.includes('hoa_don') || k.includes('tem_ruou')) return 'Hóa đơn · Chứng từ';
+  if (k.includes('hai_quan') || k.includes('ngoai_thuong') || k.includes('xuat_xu')) return 'Hải quan · XNK';
+  if (k.includes('thue') || k.includes('gtgt') || k.includes('tncn') || k.includes('tndn') || k.includes('gdlk') || k.includes('phi_le_phi') || k.includes('hkd')) {
+    return 'Thuế · Phí';
+  }
+  if (k.includes('lao_dong') || k.includes('bhxh') || k.includes('cong_doan')) return 'Lao động & An toàn';
+  if (k.includes('thuong_mai_dien_tu')) return 'Thương mại điện tử';
+  if (k.includes('chuyen_doi_so') || k.includes('giao_dich_dien_tu') || k.includes('dinh_danh') || k.includes('khcn')) {
+    return 'Chuyển đổi số';
+  }
+  if (k.includes('phong_chay')) return 'PCCC';
+  if (k.includes('dau_thau')) return 'Đấu thầu';
+  if (k.includes('xay_dung')) return 'Xây dựng';
+  if (k.includes('thanh_tra') || k.includes('xu_phat') || k.includes('xu_ly_vi_pham')) return 'Thanh tra';
+  if (k.includes('thu_tuc_hanh_chinh')) return 'Thủ tục hành chính';
+  if (k.includes('dau_tu') || k.includes('doanh_nghiep') || k.includes('dnnvv')) return 'Doanh nghiệp & HĐQT';
+  return 'Doanh nghiệp & HĐQT';
+}
+
+export function externalVbplEntryToLegalDocument(entry: ExternalVbplIndexEntry): LegalDocument {
+  const issueDate = normalizeIsoDate(entry.ngayBanHanh);
+  const effDate = normalizeIsoDate(entry.hieuLucTu || entry.ngayBanHanh);
+  const expDate = entry.hieuLucDen ? normalizeIsoDate(entry.hieuLucDen) : null;
+  const isExpired = Boolean(expDate && expDate <= '2026-11-13');
+  return {
+    id: `ext-${entry.id}`,
+    doc_type: mapExternalDocType(entry.loai),
+    issuing_body: entry.category || 'Cơ quan nhà nước',
+    doc_number: entry.soHieu,
+    title: entry.tenDayDu,
+    short_title: entry.tenDayDu.slice(0, 64) + (entry.tenDayDu.length > 64 ? '…' : ''),
+    issue_date: issueDate,
+    effective_date: effDate,
+    expiration_date: expDate,
+    status: isExpired ? 'HET_HIEU_LUC' : 'CON_HIEU_LUC',
+    field: mapExternalField(entry.category_key, entry.category),
+    project_stage: 'Thực thi',
+    signer: 'Cơ quan ban hành',
+    summary: `${entry.tenDayDu} (${entry.articles} Điều · ${entry.clauses} Khoản/Điểm — Nhấp để tải toàn văn Chương/Điều).`,
+    source_url: entry.url || undefined,
+    total_articles_count: entry.articles || undefined,
+    total_clauses_count: entry.clauses || undefined,
+    authenticity_tier: 'VERIFIED_EXCERPT',
+    is_consolidated: entry.loai === 'VBHN',
+    completeness_meta: {
+      total_articles_count: Math.max(1, entry.articles),
+      loaded_articles_count: 0,
+      completeness_percent: 0,
+      is_full_text: false,
+      note: `Sẵn sàng nạp toàn văn ${entry.articles} Điều (${entry.chapters} Chương) khi mở văn bản`,
+    },
+    articles: [],
+  };
+}
+
 /**
  * Đồng bộ kho văn bản gốc (INITIAL_LEGAL_DOCUMENTS với đầy đủ Điều khoản chi tiết)
  * với toàn bộ 188 bản ghi REG_Master từ Google Sheet LEGAL.
@@ -270,9 +352,21 @@ export function buildSynchronizedLegalCorpus(
   });
 
   const additionalCatalogDocs: LegalDocument[] = [];
+  const seenSoHieu = new Set<string>(
+    enrichedBase.map((d) => d.doc_number.trim().toUpperCase())
+  );
   for (const r of regRecords) {
     if (matchedRegDocIds.has(r.doc_id)) continue;
-    additionalCatalogDocs.push(regMasterRecordToLegalDocument(r));
+    const regDoc = regMasterRecordToLegalDocument(r);
+    additionalCatalogDocs.push(regDoc);
+    seenSoHieu.add(regDoc.doc_number.trim().toUpperCase());
+  }
+
+  for (const extItem of EXTERNAL_VBPL_LIST) {
+    const key = extItem.soHieu.trim().toUpperCase();
+    if (!key || seenSoHieu.has(key)) continue;
+    additionalCatalogDocs.push(externalVbplEntryToLegalDocument(extItem));
+    seenSoHieu.add(key);
   }
 
   return [...enrichedBase, ...additionalCatalogDocs];
