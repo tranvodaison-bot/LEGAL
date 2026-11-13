@@ -45,6 +45,17 @@ export function verifySingleCitation(
     };
   }
 
+  if (matchedDoc.is_blocked_p0 || matchedDoc.reg_master_meta?.is_blocked_p0) {
+    return {
+      raw_citation: `${cleanArticleRef} (${matchedDoc.doc_number})`,
+      matched_doc_id: matchedDoc.id,
+      matched_doc_number: matchedDoc.doc_number,
+      verification_status: 'UNVERIFIED_EXTERNAL',
+      authenticity_tier: 'QUARANTINE_REVIEW',
+      warning_note: `BLOCKED_P0 — CẤM DÙNG CHO LEGAL_AI: Văn bản ${matchedDoc.doc_number} (${matchedDoc.legacy_doc_id || matchedDoc.id}) đang bị cách ly QA (${matchedDoc.reg_master_meta?.xac_minh_nguon_phap_ly_qa || 'Xung đột định danh/nguồn pháp lý'}).`,
+    };
+  }
+
   const tier = resolveAuthenticityTier(matchedDoc);
   const completeness = computeDocumentCompleteness(matchedDoc);
 

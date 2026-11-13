@@ -144,6 +144,9 @@ export function computeDocumentCompleteness(doc: LegalDocument): CompletenessMet
 }
 
 export function resolveAuthenticityTier(doc: LegalDocument): AuthenticityTier {
+  if (doc.is_blocked_p0 || doc.reg_master_meta?.is_blocked_p0) {
+    return 'QUARANTINE_REVIEW';
+  }
   if (doc.doc_type === 'Tài liệu' || doc.id === 'huong-dan' || doc.field === 'Hướng dẫn sử dụng') {
     return 'REFERENCE_GUIDE';
   }
@@ -295,6 +298,17 @@ export function validateCorpusIntegrity(documents: LegalDocument[]): {
         severity: 'P0',
         code: 'P0_MISCLASSIFIED_OFFICIAL_VBHN',
         message: `Văn bản ${doc.doc_number} không phải Văn bản hợp nhất (/VBHN-) nhưng bị phân loại nhầm thành OFFICIAL_VBHN.`,
+      });
+    }
+
+    // 3b. Kiểm tra bản ghi BLOCKED_P0 từ REG_Master không bao giờ được lọt vào SSoT
+    if ((doc.is_blocked_p0 || doc.reg_master_meta?.is_blocked_p0) && tier !== 'QUARANTINE_REVIEW') {
+      findings.push({
+        doc_id: doc.id,
+        doc_number: doc.doc_number,
+        severity: 'P0',
+        code: 'P0_BLOCKED_RECORD_IN_SSOT',
+        message: `Bản ghi ${doc.doc_number} (${doc.legacy_doc_id || doc.id}) đang bị gắn cờ BLOCKED_P0 nhưng không ở vùng cách ly QUARANTINE_REVIEW.`,
       });
     }
 

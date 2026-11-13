@@ -8,6 +8,13 @@ import {
   INITIAL_DAILY_ALERTS,
   INITIAL_LEGAL_DOCUMENTS,
 } from '../src/data/legalCorpus';
+import {
+  BLOCKED_P0_DOC_IDS,
+  buildSynchronizedLegalCorpus,
+  NAMING_CONVENTION_V1_RULES,
+  REG_MASTER_RAW_RECORDS,
+  REG_MASTER_STATS,
+} from '../src/data/regMasterCatalog';
 import { MASTER_COMPLIANCE_STEPS } from '../src/data/stageGateCorpus';
 import {
   computeDocumentCompleteness,
@@ -724,4 +731,62 @@ test('TC-P1-06 & TC-P1-07 (StageGate Lock & EvidenceBasedReportSnapshot): Khóa 
   assert.ok(snapshot.verified_citations.length > 0);
   assert.equal(snapshot.reasoning_traces.length, 1);
   assert.ok(snapshot.unverified_or_missing_warnings.length > 0);
+});
+
+test('TC-REG-01: Toàn vẹn 188 bản ghi REG_Master, 6 bản ghi BLOCKED_P0, 11 phụ lục con và 44 quy tắc đặt tên v1.0', () => {
+  assert.equal(REG_MASTER_RAW_RECORDS.length, 188);
+  assert.equal(REG_MASTER_STATS.total_records, 188);
+  assert.equal(REG_MASTER_STATS.blocked_p0_count, 6);
+  assert.equal(REG_MASTER_STATS.child_annex_records, 11);
+  assert.equal(NAMING_CONVENTION_V1_RULES.length, 44);
+
+  const expectedBlocked = ['DOC-046', 'DOC-054', 'DOC-063', 'DOC-076', 'DOC-091', 'DOC-092'];
+  for (const id of expectedBlocked) {
+    assert.ok(BLOCKED_P0_DOC_IDS.has(id), `Thiếu bản ghi BLOCKED_P0: ${id}`);
+  }
+
+  const children = REG_MASTER_RAW_RECORDS.filter((r) => r.loai_ban_ghi_qa === 'PHỤ LỤC / PHẦN');
+  assert.equal(children.length, 11);
+  assert.ok(children.every((c) => c.parent_doc_id_qa === 'DOC-038' || c.parent_doc_id_qa === 'DOC-040'));
+});
+
+test('TC-REG-02: buildSynchronizedLegalCorpus đồng bộ 188 bản ghi với kho SSoT gốc và cách ly BLOCKED_P0', () => {
+  const synced = buildSynchronizedLegalCorpus(INITIAL_LEGAL_DOCUMENTS);
+  assert.ok(synced.length > 200, `Kho đồng bộ phải gồm 43 văn bản gốc + phần còn lại của 188 REG_Master, thực tế: ${synced.length}`);
+
+  const lxd = synced.find((d) => d.doc_number === '135/2025/QH15');
+  assert.ok(lxd);
+  assert.equal(lxd.legacy_doc_id, 'DOC-011');
+  assert.ok(lxd.reg_master_meta?.ten_file_chuan_hoa_v1.includes('135_2025'));
+
+  const blockedDocs = synced.filter((d) => d.is_blocked_p0);
+  assert.equal(blockedDocs.length, 6);
+  for (const b of blockedDocs) {
+    assert.equal(resolveAuthenticityTier(b), 'QUARANTINE_REVIEW');
+  }
+});
+
+test('TC-REG-03: Citation Verifier & IRAC Reasoning chặn tuyệt đối các bản ghi BLOCKED_P0', () => {
+  const synced = buildSynchronizedLegalCorpus(INITIAL_LEGAL_DOCUMENTS);
+  const blockedCitation = verifySingleCitation('350/2026/NĐ-CP', 'Điều 1', synced);
+  assert.equal(blockedCitation.verification_status, 'UNVERIFIED_EXTERNAL');
+  assert.equal(blockedCitation.authenticity_tier, 'QUARANTINE_REVIEW');
+  assert.match(blockedCitation.warning_note || '', /BLOCKED_P0/);
+
+  const irac = buildDeterministicIRACBaseline({
+    mode: 'LEGAL_AUDIT',
+    referenceDate: '2026-10-01',
+    caseTitle: 'Kiểm tra chặn nguồn BLOCKED_P0',
+    facts: [
+      {
+        id: 'f1',
+        event_date: '2026-10-01',
+        event_title: 'Kiểm tra nguồn xung đột',
+        description: 'Thử dẫn chiếu NĐ 350/2026/NĐ-CP bị gắn cờ xung đột nguồn.',
+      },
+    ],
+    targetProvisions: [{ doc_id: 'reg-doc-092', article_no: 'Điều 1' }],
+    corpus: synced,
+  });
+  assert.equal(irac.epistemic_status, 'ABSTAINED_INSUFFICIENT_SSOT');
 });

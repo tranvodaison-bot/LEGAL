@@ -29,9 +29,14 @@ export type ProjectLifecycleStage =
 export type LegalDocType =
   | 'Bộ luật'
   | 'Luật'
+  | 'Nghị quyết'
   | 'Nghị định'
   | 'Thông tư'
+  | 'Thông tư liên tịch'
   | 'Quyết định'
+  | 'Văn bản hợp nhất'
+  | 'Công văn'
+  | 'Biểu mẫu'
   | 'Quy chuẩn QCVN'
   | 'Tài liệu';
 
@@ -321,6 +326,10 @@ export interface LegalDocument {
   };
   is_new_daily_update?: boolean;
   daily_update_note?: string;
+  legacy_doc_id?: string;          // Mã định danh REG_Master (VD: DOC-011, DOC-038-PL1)
+  parent_doc_id?: string;          // Mã Doc_ID cha cho các Phụ lục / Phần đính kèm
+  is_blocked_p0?: boolean;         // Cờ cách ly P0: CẤM DÙNG CHO LEGAL_AI / SSoT
+  reg_master_meta?: RegMasterMetadata; // Siêu dữ liệu 33 cột từ REG_Master Google Sheet
   articles: LegalArticle[];
 }
 
@@ -544,5 +553,53 @@ export interface EvidenceBasedReportSnapshot {
   unverified_or_missing_warnings: string[]; // Mục công khai giới hạn dữ liệu (Epistemic Humility Section)
   report_integrity_sha256: string;          // Mã băm SHA-256 của toàn bộ nội dung báo cáo xuất ra
 }
+
+export interface RegMasterMetadata {
+  stt: number;
+  doc_id: string;                            // DOC-001 .. DOC-180, DOC-038-PL1..7, DOC-040-P1..4
+  nhom_vb: string;                           // PL
+  du_an: string;
+  goi_thau: string;
+  loai_vb: string;
+  co_quan_ban_hanh: string;
+  so_hieu: string;
+  ngay_ban_hanh: string;
+  ngay_hieu_luc: string;
+  tinh_trang_hieu_luc: string;
+  linh_vuc_chuyen_mon: string;               // XD, DD, DTH, DTU, MT, PCCC, TC
+  tru_cot_phap_ly: string;                   // Xây dựng, Đất đai, Đấu thầu, Đầu tư, Nhà ở & BĐS, PCCC & CNCH, Quy hoạch
+  cap_bac: string;                           // L1 - Luật .. L5 - Biểu mẫu
+  ten_file_chuan_hoa_v1: string;
+  duong_dan_drive: string;
+  trich_yeu_noi_dung: string;
+  ghi_chu: string;
+  loai_ban_ghi_qa: 'VĂN BẢN' | 'PHỤ LỤC / PHẦN';
+  parent_doc_id_qa: string;
+  so_hieu_van_ban_goc_qa: string;
+  kiem_tra_duong_dan_qa: string;
+  kiem_tra_dinh_danh_qa: string;             // HỢP LỆ TRONG SHEET | BLOCKED_P0 — CẤM DÙNG CHO LEGAL_AI
+  kiem_tra_phan_loai_qa: string;
+  xac_minh_nguon_phap_ly_qa: string;
+  ghi_chu_can_ra_soat_qa: string;
+  don_vi_ap_dung_rbac: string;
+  loai_quan_he_phap_ly: string;
+  chi_tiet_thay_the_sua_doi: string;
+  quy_tac_chuyen_tiep_01_07_2026: string;
+  fk_bang_qlhd: string;
+  fk_thu_vien_kt821: string;
+  ma_gem_va_trang_thai_ai: string;           // VD: GEM-01 • ACTIVE
+  matched_local_drive_path?: string;         // Đường dẫn file thực tế khớp trong Data_Legal (nếu có)
+  is_blocked_p0: boolean;
+}
+
+export interface NamingConventionRule {
+  stt: string;
+  category: string;
+  code_rule: string;
+  meaning: string;
+  example: string;
+  application_note: string;
+}
+
 
 

@@ -65,6 +65,9 @@ export function buildDeterministicIRACBaseline(params: {
   const combinedInputText = `${caseTitle} ${facts.map((f) => `${f.event_title} ${f.description}`).join(' ')}`;
   const outOfCorpusDomain = detectOutOfCorpusDomain(combinedInputText);
 
+  // Loại bỏ hoàn toàn các bản ghi BLOCKED_P0 khỏi kho suy luận pháp lý AI (Lakehouse Quarantine Gate)
+  const safeCorpus = corpus.filter((d) => !d.is_blocked_p0 && !d.reg_master_meta?.is_blocked_p0);
+
   const resolvedList: PointInTimeResolutionResult[] = [];
   for (const p of targetProvisions) {
     try {
@@ -77,7 +80,7 @@ export function buildDeterministicIRACBaseline(params: {
             reference_date: referenceDate,
             milestone_initiation_date: milestoneInitiationDate,
           },
-          corpus
+          safeCorpus
         )
       );
     } catch {

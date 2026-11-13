@@ -66,6 +66,7 @@ import {
   VBPL_CATEGORY_GROUPS,
   POPULAR_SEARCH_KEYWORDS,
 } from './data/legalCorpus';
+import { buildSynchronizedLegalCorpus } from './data/regMasterCatalog';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { LegalReaderModal } from './components/LegalReaderModal';
 import {
@@ -363,6 +364,32 @@ const CatalogDocumentCard = React.memo<CatalogDocumentCardProps>(
             </button>
           )}
 
+          {/* Badge BLOCKED_P0 & Mã định danh REG_Master */}
+          {(doc.is_blocked_p0 || doc.reg_master_meta?.is_blocked_p0) && (
+            <span
+              className="text-[9px] font-mono-code font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-900 border border-red-300 dark:bg-red-950/70 dark:text-red-300 dark:border-red-700"
+              title={
+                doc.reg_master_meta?.xac_minh_nguon_phap_ly_qa ||
+                'BLOCKED_P0 — Cấm sử dụng cho AI suy luận pháp lý'
+              }
+            >
+              ⛔ BLOCKED_P0
+            </span>
+          )}
+          {doc.legacy_doc_id && (
+            <span
+              className="text-[9px] font-mono-code font-semibold px-1.5 py-0.5 rounded bg-sky-50 text-sky-900 border border-sky-200 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800"
+              title={
+                doc.reg_master_meta?.ten_file_chuan_hoa_v1
+                  ? `REG_Master: ${doc.legacy_doc_id} | ${doc.reg_master_meta.ten_file_chuan_hoa_v1}`
+                  : `REG_Master: ${doc.legacy_doc_id}`
+              }
+            >
+              {doc.legacy_doc_id}
+              {doc.parent_doc_id ? ` ↳ ${doc.parent_doc_id}` : ''}
+            </span>
+          )}
+
           {/* Badge Tỷ lệ hoàn thiện Điều khoản (Completeness Metadata P0-02) */}
           {(() => {
             const comp = doc.completeness_meta || computeDocumentCompleteness(doc);
@@ -652,17 +679,18 @@ export default function App() {
 
   // Deduplicated SSoT Relational State with LocalStorage Persistence + Genealogy Schema Hydration
   const [documents, setDocuments] = useState<LegalDocument[]>(() => {
+    const synchronizedSeed = buildSynchronizedLegalCorpus(INITIAL_LEGAL_DOCUMENTS);
     const stored = loadFromStorage<LegalDocument[]>(
       STORAGE_KEYS.DOCS,
-      INITIAL_LEGAL_DOCUMENTS
+      synchronizedSeed
     );
     const initialById = new Map<string, LegalDocument>(
-      INITIAL_LEGAL_DOCUMENTS.map((d) => [d.id, d])
+      synchronizedSeed.map((d) => [d.id, d])
     );
-    // Ensure all initial documents exist without duplication and receive latest genealogy fields
+    // Ensure all initial + REG_Master documents exist without duplication and receive latest genealogy fields
     const mapById = new Map<string, LegalDocument>();
     const seenNumbers = new Set<string>();
-    [...stored, ...INITIAL_LEGAL_DOCUMENTS].forEach((d) => {
+    [...stored, ...synchronizedSeed].forEach((d) => {
       const codeKey = d.doc_number.trim().toUpperCase();
       if (!mapById.has(d.id) && !seenNumbers.has(codeKey)) {
         const seedDoc = initialById.get(d.id);
@@ -717,6 +745,11 @@ export default function App() {
               seedDoc.consolidated_doc_number ?? d.consolidated_doc_number,
             is_expiring_soon: d.is_expiring_soon ?? seedDoc.is_expiring_soon,
             expiration_date: d.expiration_date ?? seedDoc.expiration_date,
+            legacy_doc_id: seedDoc.legacy_doc_id ?? d.legacy_doc_id,
+            parent_doc_id: seedDoc.parent_doc_id ?? d.parent_doc_id,
+            is_blocked_p0: seedDoc.is_blocked_p0 ?? d.is_blocked_p0,
+            reg_master_meta: seedDoc.reg_master_meta ?? d.reg_master_meta,
+            source_url: seedDoc.source_url ?? d.source_url,
             articles: mergedArticles,
           });
         } else {

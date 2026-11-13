@@ -15,6 +15,12 @@ import {
   SavedClauseItem,
   AuditLogEntry,
 } from '../types/legal';
+import {
+  NAMING_CONVENTION_V1_RULES,
+  parseRegMasterCsv,
+  REG_MASTER_STATS,
+  regMasterRecordToLegalDocument,
+} from '../data/regMasterCatalog';
 
 interface BackupAndStatsModalProps {
   mode: 'export' | 'stats' | 'help' | null;
@@ -350,6 +356,63 @@ if(data.docs[0]) openDoc(data.docs[0].id);
                     {savedDocs.length}
                   </b>
                   <span className="text-xs text-stone-500">Đánh dấu ⚑</span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/80 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-sky-900 dark:text-sky-300">
+                    Đồng bộ Google Sheet LEGAL (REG_Master & Quy_Tac_Dat_Ten v1.0)
+                  </h3>
+                  <label className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-sky-700 hover:bg-sky-800 text-white cursor-pointer transition">
+                    Nạp CSV REG_Master mới
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const text = await file.text();
+                        const parsed = parseRegMasterCsv(text);
+                        if (parsed.length > 0) {
+                          const mappedDocs = parsed.map(regMasterRecordToLegalDocument);
+                          onImportBackupData(mappedDocs, [], {});
+                          onLogAction(
+                            'REG_MASTER_CSV_SYNC',
+                            `Đồng bộ ${parsed.length} bản ghi từ ${file.name} (${parsed.filter((r) => r.is_blocked_p0).length} BLOCKED_P0)`
+                          );
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <div className="p-2 rounded-lg bg-white/80 dark:bg-[#141413] border border-sky-200/70 dark:border-sky-900">
+                    <b className="block text-base text-sky-900 dark:text-sky-300">
+                      {REG_MASTER_STATS.total_records}
+                    </b>
+                    <span className="text-[11px] text-stone-500">Bản ghi REG_Master</span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-white/80 dark:bg-[#141413] border border-red-200/70 dark:border-red-900">
+                    <b className="block text-base text-red-700 dark:text-red-400">
+                      {REG_MASTER_STATS.blocked_p0_count}
+                    </b>
+                    <span className="text-[11px] text-stone-500">Cách ly BLOCKED_P0</span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-white/80 dark:bg-[#141413] border border-emerald-200/70 dark:border-emerald-900">
+                    <b className="block text-base text-emerald-700 dark:text-emerald-400">
+                      {REG_MASTER_STATS.drive_matched_count}
+                    </b>
+                    <span className="text-[11px] text-stone-500">Khớp file Drive</span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-white/80 dark:bg-[#141413] border border-amber-200/70 dark:border-amber-900">
+                    <b className="block text-base text-amber-700 dark:text-amber-400">
+                      {NAMING_CONVENTION_V1_RULES.length}
+                    </b>
+                    <span className="text-[11px] text-stone-500">Quy tắc đặt tên v1.0</span>
+                  </div>
                 </div>
               </div>
 

@@ -1,0 +1,45 @@
+STT,Phân loại / Thành phần,Ký hiệu / Quy tắc,Ý nghĩa / Giải thích,Ví dụ thực tế,Ghi chú áp dụng
+I,CẤU TRÚC TỔNG QUÁT,[Lĩnh_Vực]_[Loại_VB]_[Số_Hiệu]_[Năm]_[Trích_Yếu][-Phụ_Lục].[đuôi],Cấu trúc đồng bộ toàn bộ kho dữ liệu văn bản pháp lý,XD_LUAT_112_2025_LuatQuyHoachNam2025QuyDinhVeHeThongQuyHo.pdf,Phân cách các trường bằng dấu gạch dưới (_)
+1,Thành phần 1: Lĩnh vực,2 - 4 ký tự in hoa,Mã viết tắt lĩnh vực chuyên môn của văn bản,"XD, DD, DTH, PCCC, TC, MT, DTU",Bắt buộc (vị trí đầu tiên)
+2,Thành phần 2: Loại văn bản,Viết hoa (kèm cơ quan nếu là TT/QĐ),Mã phân loại văn bản quy phạm pháp luật,"LUAT, ND, NQ, TT-BXD, QD-BXD, VBHN-QH",Bắt buộc (vị trí thứ 2)
+3,Thành phần 3: Số hiệu văn bản,Chỉ lấy phần số chính,Số văn bản đã loại bỏ dấu gạch chéo và hậu tố ban hành,"112, 178, 254, 36, 1040, 217","Loại bỏ các ký tự /2025/QH15, /NĐ-CP, v.v."
+4,Thành phần 4: Năm ban hành,4 chữ số (YYYY),Năm ban hành văn bản chính thức,"2023, 2024, 2025, 2026",Bắt buộc (vị trí thứ 4)
+5,Thành phần 5: Trích yếu rút gọn,"Không dấu, viết hoa chữ cái đầu (PascalCase)",Mô tả ngắn gọn nội dung cốt lõi của văn bản (tối đa 50 ký tự),LuatQuyHoachNam2025QuyDinhVeHeThongQuyHo,"Không dùng khoảng trắng, không dấu tiếng Việt"
+6,Thành phần 6: Phụ lục / Phần (nếu có),-PLxx hoặc -Pxx,Định danh phụ lục đính kèm văn bản gốc,"-PL01, -PL02, -P1, -P2",Nối với trích yếu bằng dấu gạch ngang (-)
+7,Thành phần 7: Đuôi tệp mở rộng,.pdf / .docx / .xlsx,Định dạng tệp lưu trữ kỹ thuật số,".pdf, .docx, .xlsx","Viết thường, đầy đủ dấu chấm"
+II,BẢNG MÃ LĨNH VỰC CHUYÊN MÔN,MÃ VIẾT TẮT (2-4 KÝ TỰ),MÔ TẢ PHẠM VI ÁP DỤNG VÀ CHUYÊN NGÀNH,VÍ DỤ ÁP DỤNG THỰC TẾ TRONG HỆ THỐNG,GHI CHÚ HỆ THỐNG
+8,Lĩnh vực Xây dựng,XD,"Hoạt động xây dựng, quy hoạch đô thị, nhà ở, kinh doanh BĐS",XD_LUAT_135_2025_...,Lĩnh vực chính trong dự án
+9,Lĩnh vực Đất đai,DD,"Quản lý, sử dụng đất, bồi thường GPMB, giao đất",DD_LUAT_31_2024_...,Luật Đất đai và văn bản liên quan
+10,Lĩnh vực Đấu thầu,DTH,"Lựa chọn nhà thầu, gói thầu tư vấn, thi công xây lắp",DTH_LUAT_22_2023_...,Luật Đấu thầu và văn bản liên quan
+11,Lĩnh vực PCCC & CNCH,PCCC,"Phòng cháy, chữa cháy và cứu nạn, cứu hộ công trình",PCCC_LUAT_55_2024_...,"Luật PCCC và tiêu chuẩn, quy chuẩn PCCC"
+12,Lĩnh vực Tài chính,TC,"Quản lý tài chính dự án, bảo hiểm bắt buộc, quyết toán vốn",TC_ND_193_2026_...,"Thanh quyết toán vốn, bảo hiểm công trình"
+13,Lĩnh vực Môi trường,MT,"Đánh giá tác động MT (ĐTM), giấy phép môi trường dự án",MT_LUAT_72_2020_...,Bảo vệ môi trường trong hoạt động ĐTXD
+14,Lĩnh vực Đầu tư,DTU,"Chấp thuận chủ trương đầu tư, ưu đãi đầu tư, dự án ĐTXD",DTU_LUAT_143_2025_...,Luật Đầu tư và các hướng dẫn thi hành
+III,BẢNG MÃ LOẠI VĂN BẢN QUY PHẠM PHÁP LUẬT,MÃ LOẠI VB CHUẨN HÓA,ĐỊNH NGHĨA VÀ CƠ QUAN BAN HÀNH PHÁP LÝ,VÍ DỤ TIÊU BIỂU TRONG KHO DỮ LIỆU,PHÂN CẤP PHÁP LÝ (HIỆU LỰC)
+15,Luật,LUAT,Văn bản luật do Quốc hội ban hành,XD_LUAT_135_2025_...,Cấp L1 - Hiệu lực cao nhất
+16,Nghị quyết Quốc hội,NQ,"Nghị quyết cơ chế chính sách, thí điểm do Quốc hội ban hành",DD_NQ_254_2025_...,Cấp L1 - Nghị quyết Quốc hội
+17,Nghị định Chính phủ,ND,Nghị định quy định chi tiết thi hành luật do Chính phủ ban hành,XD_ND_217_2026_...,Cấp L2 - Nghị định
+18,Nghị quyết Chính phủ,NQ-CP,"Nghị quyết của Chính phủ về điều hành, cắt giảm thủ tục ĐTXD",XD_NQ-CP_66.18_2026_...,Cấp L2 - Nghị quyết Chính phủ
+19,Thông tư Bộ Xây dựng,TT-BXD,"Thông tư hướng dẫn chuyên ngành Quản lý chi phí, HĐXD, định mức",XD_TT-BXD_36_2026_...,Cấp L3 - Thông tư Bộ Xây dựng
+20,Thông tư Bộ Công an,TT-BCA,"Thông tư ban hành QCVN, trang bị phương tiện PCCC cho công trình",PCCC_TT-BCA_103_2025_...,Cấp L3 - Thông tư Bộ Công an
+21,Thông tư Ngân hàng Nhà nước,TT-NHNN,Thông tư quy định về bảo lãnh ngân hàng trong bán nhà ở hình thành TL,TC_TT-NHNN_61_2024_...,Cấp L3 - Thông tư NHNN
+22,Quyết định công bố / hướng dẫn,QD-BXD,"Quyết định công bố mẫu hợp đồng, định mức dự toán, đính chính",XD_QD-BXD_1040_2026_...,Cấp L4 - Quyết định cơ quan Bộ
+23,Văn bản hợp nhất (Quốc hội / Bộ ngành),VBHN,"Văn bản hợp nhất các luật, thông tư sau sửa đổi, bổ sung",XD_VBHN-QH_146_2026_...,Văn bản hợp nhất quy phạm
+IV,NGUYÊN TẮC CHUẨN HÓA VÀ RÀ SOÁT TÊN TỆP,TIÊU CHUẨN KỸ THUẬT VÀ QUY ƯỚC,MỤC TIÊU VÀ LÝ DO KỸ THUẬT ÁP DỤNG,HÌNH THỨC ÁP DỤNG CHUẨN HÓA,MỨC ĐỘ BẮT BUỘC
+24,Bỏ dấu tiếng Việt,Chuyển chữ có dấu sang không dấu,"Tránh lỗi font chữ, mã hóa ký tự URL trên hệ thống đám mây",QuyHoach (thay vì QuyHoạch),Bắt buộc 100% cho toàn bộ tên tệp
+25,Không dùng khoảng trắng (Space),Dùng gạch dưới (_) phân cách trường,Đảm bảo tính tương thích tuyệt đối cho đường dẫn Drive/Web,XD_LUAT_112_2025_...,Không dùng dấu cách space ở bất kỳ vị trí nào
+26,Định dạng PascalCase cho trích yếu,Viết hoa chữ cái đầu mỗi từ,Giúp người dùng dễ đọc quét nội dung khi không có dấu cách,LuatKinhDoanhBatDongSan,Áp dụng cho trường Trích yếu rút gọn
+27,Kiểm soát độ dài tên tệp,Trích yếu từ 30 - 60 ký tự,Tránh vượt giới hạn độ dài đường dẫn tệp hệ điều hành (MAX_PATH 255),Cắt gọn các cụm từ diễn giải dài dòng,Đảm bảo tệp tải về không bị lỗi hệ điều hành
+28,Xử lý ký tự đặc biệt trong số hiệu,"Loại bỏ gạch chéo (/), dấu chấm tròn",Ký tự / bị cấm trong cấu trúc đặt tên tệp của Windows/Linux,112/2025/QH15 chuyển thành 112_2025,Chỉ giữ phần số và năm ban hành chính thức
+V,BẢNG ĐỐI CHIẾU MẪU CÁC VĂN BẢN TRỌNG TÂM,SỐ HIỆU VĂN BẢN GỐC,TRÍCH YẾU NỘI DUNG VĂN BẢN,TÊN TỆP CHUẨN HÓA V1.0 (PDF),MÃ DOC_ID TRONG BẢNG REG_MASTER
+29,Luật Quy hoạch 2025,112/2025/QH15,Luật Quy hoạch năm 2025 quy định hệ thống quy hoạch quốc gia và ngành,XD_LUAT_112_2025_LuatQuyHoach.pdf,DOC-001 (Quy hoạch)
+30,Luật Đất đai 2024,31/2024/QH15,"Luật Đất đai năm 2024 về quản lý sử dụng đất, bồi thường GPMB",DD_LUAT_31_2024_LuatDatDai.pdf,DOC-003 (Đất đai)
+31,Luật Nhà ở 2023,27/2023/QH15,"Luật Nhà ở năm 2023 quy định phát triển nhà ở thương mại, NOXH",XD_LUAT_27_2023_LuatNhaO.pdf,DOC-005 (Nhà ở & BĐS)
+32,Luật Đấu thầu 2023,22/2023/QH15,"Luật Đấu thầu năm 2023 quy định lựa chọn nhà thầu tư vấn, xây lắp",DTH_LUAT_22_2023_LuatDauThauNam.pdf,DOC-008 (Đấu thầu)
+33,Luật Xây dựng 2025,135/2025/QH15,Luật Xây dựng năm 2025 quy định toàn diện hoạt động đầu tư XD,XD_LUAT_135_2025_LuatXayDung.pdf,DOC-011 (Xây dựng)
+34,Luật PCCC & CNCH 2024,55/2024/QH15,"Luật PCCC và CNCH năm 2024 về thẩm duyệt, nghiệm thu PCCC",PCCC_LUAT_55_2024_LuatPCCC.pdf,DOC-017 (PCCC)
+35,Nghị định 217/2026/NĐ-CP,217/2026/NĐ-CP,Quy định chi tiết một số điều của Luật XD về quản lý hoạt động ĐTXD,XD_ND_217_2026_QuanLyHoatDongXayDung.pdf,DOC-012 (Xây dựng)
+36,Nghị định 206/2026/NĐ-CP,206/2026/NĐ-CP,"Quy định chi tiết về quản lý chi phí ĐTXD, tổng mức đầu tư, dự toán XD",XD_ND_206_2026_QuanLyChiPhiDTXD.pdf,DOC-014 (Chi phí ĐTXD)
+37,Nghị định 207/2026/NĐ-CP,207/2026/NĐ-CP,"Quy định chi tiết về quản lý chất lượng, thi công và bảo trì công trình XD",XD_ND_207_2026_QuanLyChatLuongTCXD.pdf,DOC-016 (Xây dựng)
+38,Quyết định 1040/QĐ-BXD,1040/QĐ-BXD,Công bố Mẫu Hợp đồng Xây dựng phục vụ quản lý hợp đồng XD,XD_QD-BXD_1040_2026_MauHopdongXaydung.pdf,DOC-038 (Hợp đồng XD)
+39,Mẫu HĐ tổng thầu EPC,1040/QĐ-BXD (PL VII),Mẫu HĐ tổng thầu EPC (Thiết kế - Mua sắm - Thi công) theo NĐ 210/2026,XD_QD-BXD_1040_2026_MauHdEPC-PL07.pdf,DOC-038-PL7 (Biểu mẫu)

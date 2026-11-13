@@ -4,6 +4,11 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import mammoth from 'mammoth';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
+import {
+  BLOCKED_P0_DOC_IDS,
+  parseRegMasterCsv,
+  REG_MASTER_STATS,
+} from './src/data/regMasterCatalog';
 
 dotenv.config();
 
@@ -826,7 +831,35 @@ Hãy lập MA TRẬN ĐỐI SOÁT CHÉO LIÊN LUẬT (liên kết trực tiếp 
       status: 'ok',
       platform: 'ĐẠI SƠN LEGAL — Legal Knowledge & Reasoning Platform',
       architecture: 'Clean Architecture · 4-Gate Verified',
+      reg_master: REG_MASTER_STATS,
       timestamp: new Date().toISOString(),
+    });
+  });
+
+  // 8b. Endpoint Trạng thái & Đồng bộ REG_Master Google Sheet LEGAL
+  app.get('/api/reg-master/status', (_req, res) => {
+    return res.json({
+      status: 'ok',
+      stats: REG_MASTER_STATS,
+      blocked_p0_doc_ids: Array.from(BLOCKED_P0_DOC_IDS),
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  app.post('/api/reg-master/sync-csv', (req, res) => {
+    const { csvText } = req.body || {};
+    if (typeof csvText !== 'string' || !csvText.trim()) {
+      return res.status(400).json({
+        error: 'Thiếu dữ liệu csvText (bắt buộc là chuỗi CSV xuất từ tab REG_Master).',
+      });
+    }
+    const parsed = parseRegMasterCsv(csvText);
+    const blockedCount = parsed.filter((r) => r.is_blocked_p0).length;
+    return res.json({
+      status: 'ok',
+      parsed_count: parsed.length,
+      blocked_p0_count: blockedCount,
+      records: parsed,
     });
   });
 
@@ -841,6 +874,14 @@ Hãy lập MA TRẬN ĐỐI SOÁT CHÉO LIÊN LUẬT (liên kết trực tiếp 
         facts = [],
         rulesContext = [],
       } = req.body || {};
+
+      const safeRulesContext = Array.isArray(rulesContext)
+        ? rulesContext.filter(
+            (r: { is_blocked_p0?: boolean; legacy_doc_id?: string; doc_id?: string }) =>
+              !r?.is_blocked_p0 &&
+              !BLOCKED_P0_DOC_IDS.has(String(r?.legacy_doc_id || r?.doc_id || ''))
+          )
+        : [];
 
       const allowedModes = new Set(['JUDICIAL_ANALYSIS', 'LEGAL_COUNSEL', 'LEGAL_AUDIT']);
       if (
@@ -861,7 +902,7 @@ Hãy lập MA TRẬN ĐỐI SOÁT CHÉO LIÊN LUẬT (liên kết trực tiếp 
         /bộ luật hàng hải|luật hàng hải|tàu biển|sở hữu trí tuệ|nhãn hiệu|bản quyền tác giả|hôn nhân và gia đình|ly hôn|hàng không dân dụng/i.test(
           combinedInputText
         );
-      if (outOfCorpusMatch || (Array.isArray(rulesContext) && rulesContext.length === 0)) {
+      if (outOfCorpusMatch || safeRulesContext.length === 0) {
         return res.json({
           abstained: true,
           conclusion_status: 'ABSTAINED_INSUFFICIENT_SSOT',
@@ -918,7 +959,7 @@ Danh sách Sự kiện & Chứng cứ thực tế (Facts):
 ${JSON.stringify(facts, null, 2)}
 
 Danh sách Quy phạm Pháp luật đã được PointInTimeResolver xác định hiệu lực tại ngày ${referenceDate}:
-${JSON.stringify(rulesContext, null, 2)}
+${JSON.stringify(safeRulesContext, null, 2)}
 
 NGUYÊN TẮC BẤT BIẾN:
 1. Chỉ được viện dẫn các số hiệu văn bản và Điều/Khoản có trong danh sách Quy phạm Pháp luật bên trên. Không tự bịa số hiệu văn bản hoặc điều khoản ngoài danh sách.
